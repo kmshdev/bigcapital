@@ -2,6 +2,8 @@ import { Ability } from '@casl/ability';
 import * as LruCache from 'lru-cache';
 import { Role } from './models/Role.model';
 import { RolePermission } from './models/RolePermission.model';
+import { AbilitySubject, CashVaultAction } from './Roles.types';
+import { UserTenantRole } from '../System/models/UserTenant.model';
 
 // store abilities of 1000 most active users
 export const ABILITIES_CACHE = new LruCache(1000);
@@ -11,8 +13,9 @@ export const ABILITIES_CACHE = new LruCache(1000);
  * @param {} role
  * @returns
  */
-export function getAbilityForRole(role) {
+export function getAbilityForRole(role, membershipRole?: UserTenantRole) {
   const rules = getAbilitiesRolesConds(role);
+  rules.push(...getCashVaultMembershipRules(membershipRole));
   return new Ability(rules);
 }
 
@@ -35,7 +38,27 @@ function getAbilitiesRolesConds(role: Role) {
  * @returns {}
  */
 function getSuperAdminRules() {
-  return [{ action: 'manage', subject: 'all' }];
+  return [
+    { action: 'manage', subject: 'all' },
+    { action: 'manage', subject: AbilitySubject.CashVault, inverted: true },
+  ];
+}
+
+function getCashVaultMembershipRules(membershipRole?: UserTenantRole) {
+  switch (membershipRole) {
+    case 'owner':
+      return [
+        { action: CashVaultAction.Manage, subject: AbilitySubject.CashVault },
+        { action: CashVaultAction.View, subject: AbilitySubject.CashVault },
+        { action: CashVaultAction.Entry, subject: AbilitySubject.CashVault },
+      ];
+    case 'member':
+      return [
+        { action: CashVaultAction.Entry, subject: AbilitySubject.CashVault },
+      ];
+    default:
+      return [];
+  }
 }
 
 /**

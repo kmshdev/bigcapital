@@ -38,6 +38,10 @@ export class Account extends TenantBaseModel {
   public plaidAccountId!: string | null;
   public isFeedsActive!: boolean;
   public isSyncingOwner!: boolean;
+  public isCashVault!: boolean;
+  public cashVaultEntryEnabled!: boolean;
+  public cashVaultDesignatedAt!: string | Date | null;
+  public cashVaultDesignatedByUserId!: number | null;
   public plaidItem!: PlaidItem;
 
   /**

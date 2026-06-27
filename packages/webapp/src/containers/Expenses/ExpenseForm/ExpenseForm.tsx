@@ -27,7 +27,7 @@ import {
 } from './ExpenseForm.schema';
 import {
   transformErrors,
-  defaultExpense,
+  makeDefaultExpense,
   transformToEditForm,
   transformFormValuesToRequest,
 } from './utils';
@@ -48,6 +48,7 @@ function ExpenseFormInner({
     createExpenseMutate,
     expense,
     expenseId,
+    accounts,
     submitPayloadRef,
   } = useExpenseFormContext();
 
@@ -58,18 +59,22 @@ function ExpenseFormInner({
 
   // Form initial values.
   const initialValues = useMemo(
-    () => ({
-      ...(!isEmpty(expense)
-        ? {
-            ...transformToEditForm(expense, defaultExpense),
-          }
-        : {
-            ...defaultExpense,
-            currency_code: baseCurrency,
-            payment_account_id: defaultTo(preferredPaymentAccount, ''),
-          }),
-    }),
-    [expense, baseCurrency, preferredPaymentAccount],
+    () => {
+      const expenseDefaults = makeDefaultExpense(accounts);
+
+      return {
+        ...(!isEmpty(expense)
+          ? {
+              ...transformToEditForm(expense, expenseDefaults),
+            }
+          : {
+              ...expenseDefaults,
+              currency_code: baseCurrency,
+              payment_account_id: defaultTo(preferredPaymentAccount, ''),
+            }),
+      };
+    },
+    [expense, accounts, baseCurrency, preferredPaymentAccount],
   );
 
   //  Handle form submit.

@@ -117,3 +117,28 @@ If end-to-end coverage is added:
 ```bash
 pnpm test:e2e -- cash-vault
 ```
+
+## Validation Notes
+
+Last focused validation in this branch used Node.js 18.16.1 and the local
+workspace `./node_modules/.bin/pnpm` runner:
+
+```bash
+pnpm --filter @bigcapital/server test -- CashVault --runInBand
+pnpm --filter @bigcapital/server test -- ExpenseSheet --runInBand
+node -e "JSON.parse(require('fs').readFileSync('packages/webapp/src/lang/en/index.json','utf8'))"
+```
+
+Observed result: Cash Vault server tests passed, ExpenseSheet server tests
+passed, and English i18n JSON parsed successfully.
+
+Workspace note: shared packages under `shared/*` must be built before server
+typecheck or Vite dependency scanning can resolve package `dist` entrypoints:
+
+```bash
+pnpm -r --filter @bigcapital/utils --filter @bigcapital/sdk-ts --filter @bigcapital/pdf-templates --filter @bigcapital/email-components build
+```
+
+After building those shared packages, server typecheck passed. Webapp typecheck
+still fails on existing financial-report/query typing errors outside the Cash
+Vault and ExpenseSheet files.

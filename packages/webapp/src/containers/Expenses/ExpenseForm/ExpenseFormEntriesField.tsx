@@ -3,7 +3,7 @@ import { FastField } from 'formik';
 import React from 'react';
 import { ExpenseFormEntriesTable } from './ExpenseFormEntriesTable';
 import { useExpenseFormContext } from './ExpenseFormPageProvider';
-import { defaultExpenseEntry, accountsFieldShouldUpdate } from './utils';
+import { makeDefaultExpenseEntry, accountsFieldShouldUpdate } from './utils';
 
 /**
  * Expense form entries field.
@@ -11,6 +11,10 @@ import { defaultExpenseEntry, accountsFieldShouldUpdate } from './utils';
 export function ExpenseFormEntriesField({ linesNumber = 4 }) {
   // Expense form context.
   const { accounts, projects } = useExpenseFormContext();
+  const defaultEntry = React.useMemo(
+    () => makeDefaultExpenseEntry(accounts),
+    [accounts],
+  );
 
   return (
     <FastField
@@ -30,7 +34,7 @@ export function ExpenseFormEntriesField({ linesNumber = 4 }) {
           onChange={(entries) => {
             setFieldValue('categories', entries);
           }}
-          defaultEntry={defaultExpenseEntry}
+          defaultEntry={defaultEntry}
           linesNumber={linesNumber}
           currencyCode={values.currency_code}
         />

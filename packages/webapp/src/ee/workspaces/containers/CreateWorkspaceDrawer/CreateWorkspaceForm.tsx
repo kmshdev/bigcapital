@@ -2,7 +2,6 @@ import React from 'react';
 import { Formik, Form, FormikHelpers } from 'formik';
 import { Button, Intent, Classes } from '@blueprintjs/core';
 import { getAllCountries } from '@bigcapital/utils';
-import { ApiError } from 'openapi-typescript-fetch';
 import { x } from '@xstyled/emotion';
 import {
   Col,
@@ -82,13 +81,14 @@ export default function CreateWorkspaceForm({
       });
     } catch (error: unknown) {
       setSubmitting(false);
+      const apiError = error as { data?: unknown };
+
       if (
-        error instanceof ApiError &&
-        error.data &&
-        typeof error.data === 'object' &&
-        'errors' in error.data
+        apiError.data &&
+        typeof apiError.data === 'object' &&
+        'errors' in apiError.data
       ) {
-        const { errors } = error.data as {
+        const { errors } = apiError.data as {
           errors: Record<string, string>;
         };
         if (errors && typeof errors === 'object') {

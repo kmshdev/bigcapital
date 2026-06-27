@@ -59,6 +59,55 @@ export class AccountRepository extends TenantRepository {
     return this.findOne({ slug });
   }
 
+  public findById(accountId: number): Promise<Account | null> {
+    return this.findOneById(accountId) as Promise<Account | null>;
+  }
+
+  public listCashVaultAccounts() {
+    return this.model.query().where('isCashVault', true);
+  }
+
+  public findCashVaultEntryTarget(): Promise<Account | null> {
+    return this.model
+      .query()
+      .where('isCashVault', true)
+      .where('cashVaultEntryEnabled', true)
+      .first() as unknown as Promise<Account | null>;
+  }
+
+  public async clearEntryTargets() {
+    await this.model
+      .query()
+      .where('cashVaultEntryEnabled', true)
+      .patch({ cashVaultEntryEnabled: false });
+  }
+
+  public markCashVault({
+    accountId,
+    entryEnabled,
+    userId,
+  }: {
+    accountId: number;
+    entryEnabled?: boolean;
+    userId?: number;
+  }) {
+    return this.model.query().patchAndFetchById(accountId, {
+      isCashVault: true,
+      cashVaultEntryEnabled: Boolean(entryEnabled),
+      cashVaultDesignatedAt: new Date(),
+      cashVaultDesignatedByUserId: userId || null,
+    });
+  }
+
+  public removeCashVaultDesignation(accountId: number) {
+    return this.model.query().patchAndFetchById(accountId, {
+      isCashVault: false,
+      cashVaultEntryEnabled: false,
+      cashVaultDesignatedAt: null,
+      cashVaultDesignatedByUserId: null,
+    });
+  }
+
   // /**
   //  * Changes account balance.
   //  * @param {number} accountId

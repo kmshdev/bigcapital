@@ -7,6 +7,7 @@ import {
   UseQueryOptions,
 } from '@tanstack/react-query';
 import { useApiFetcher } from '../../useRequest';
+import useApiRequest from '../../useRequest';
 import { downloadFile } from '../../useDownloadFile';
 import { importKeys } from './query-keys';
 import { itemsKeys } from '../items/query-keys';
@@ -176,6 +177,50 @@ export const useSampleSheetImport = () => {
       }),
   });
 };
+
+export function useExpenseSheetImportUpload(props?: UseMutationOptions<any, Error, any>) {
+  const request = useApiRequest() as any;
+  return useMutation({
+    ...props,
+    mutationFn: (values) =>
+      request
+        .post('/expense-sheet-imports', values)
+        .then((res: any) => res.data),
+  });
+}
+
+export function useExpenseSheetImportMapping(props?: UseMutationOptions<any, Error, any>) {
+  const request = useApiRequest() as any;
+  return useMutation({
+    ...props,
+    mutationFn: ({ importId, headers }) =>
+      request
+        .post(`/expense-sheet-imports/${importId}/mapping`, { headers })
+        .then((res: any) => res.data),
+  });
+}
+
+export function useExpenseSheetImportPreview(props?: UseMutationOptions<any, Error, any>) {
+  const request = useApiRequest() as any;
+  return useMutation({
+    ...props,
+    mutationFn: ({ importId, rows }) =>
+      request
+        .post(`/expense-sheet-imports/${importId}/preview`, { rows })
+        .then((res: any) => res.data),
+  });
+}
+
+export function useExpenseSheetImportCommit(props?: UseMutationOptions<any, Error, any>) {
+  const request = useApiRequest() as any;
+  return useMutation({
+    ...props,
+    mutationFn: ({ importId, rows }) =>
+      request
+        .post(`/expense-sheet-imports/${importId}/commit`, { rows })
+        .then((res: any) => res.data),
+  });
+}
 
 /**
  * Invalidates resources cached queries based on the given resource name.

@@ -3,7 +3,6 @@ import React from 'react';
 import { AccountsReceivableSection } from './AccountsReceivableSection';
 import { AccountsPayableSection } from './AccountsPayableSection';
 import { FinancialAccountingSection } from './FinancialAccountingSection';
-import { ProductsServicesSection } from './ProductsServicesSection';
 import '@/style/pages/HomePage/HomePage.scss';
 
 export function HomepageContent() {
@@ -12,7 +11,6 @@ export function HomepageContent() {
       <AccountsReceivableSection />
       <AccountsPayableSection />
       <FinancialAccountingSection />
-      <ProductsServicesSection />
     </div>
   );
 }

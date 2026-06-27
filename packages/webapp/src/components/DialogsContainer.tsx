@@ -47,6 +47,10 @@ import { SelectPaymentMethodsDialog } from '@/containers/PaymentLink/dialogs/Sel
 import { ApiKeysGenerateDialog } from '@/containers/Dialogs/ApiKeysGenerateDialog';
 import WorkspaceDeleteDialog from '@/ee/workspaces/containers/Dialogs/WorkspaceDeleteDialog';
 import WorkspaceInactivateDialog from '@/ee/workspaces/containers/Dialogs/WorkspaceInactivateDialog';
+import {
+  CashVaultChallengeDialog,
+  CashVaultEntryDialog,
+} from '@/containers/CashVault';
 
 /**
  * Dialogs container.
@@ -143,6 +147,8 @@ export default function DialogsContainer() {
         dialogName={DialogsName.SelectPaymentMethod}
       />
       <ApiKeysGenerateDialog dialogName={DialogsName.ApiKeysGenerate} />
+      <CashVaultChallengeDialog dialogName={DialogsName.CashVaultChallenge} />
+      <CashVaultEntryDialog dialogName={DialogsName.CashVaultEntry} />
       <WorkspaceDeleteDialog dialogName={DialogsName.WorkspaceDelete} />
       <WorkspaceInactivateDialog dialogName={DialogsName.WorkspaceInactivate} />
     </div>

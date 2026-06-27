@@ -18,6 +18,7 @@ import { SaleReceiptAction } from '../SaleReceipts/types/SaleReceipts.types';
 import { BillAction } from '../Bills/Bills.types';
 import {
   AbilitySubject,
+  CashVaultAction,
   ISubjectAbilitiesSchema,
   ISubjectAbilitySchema,
 } from './Roles.types';
@@ -60,6 +61,15 @@ export const AbilitySchema: ISubjectAbilitiesSchema[] = [
       { key: CashflowAction.View, label: 'ability.view' },
       { key: CashflowAction.Create, label: 'ability.create' },
       { key: CashflowAction.Delete, label: 'ability.delete' },
+    ],
+  },
+  {
+    subject: AbilitySubject.CashVault,
+    subjectLabel: 'ability.cash_vault',
+    abilities: [
+      { key: CashVaultAction.Manage, label: 'ability.manage' },
+      { key: CashVaultAction.Entry, label: 'ability.entry' },
+      { key: CashVaultAction.View, label: 'ability.view' },
     ],
   },
   {

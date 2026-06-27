@@ -12,6 +12,7 @@ import { TenantsListCommand } from './commands/TenantsList.command';
 import { SystemSeedLatestCommand } from './commands/SystemSeedLatest.command';
 import { TenantsSeedLatestCommand } from './commands/TenantsSeedLatest.command';
 import { OpenApiExportCommand } from './commands/OpenApiExport.command';
+import { LocalBookeepzBootstrapCommand } from './commands/LocalBookeepzBootstrap.command';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { OpenApiExportCommand } from './commands/OpenApiExport.command';
     SystemSeedLatestCommand,
     TenantsSeedLatestCommand,
     OpenApiExportCommand,
+    LocalBookeepzBootstrapCommand,
   ],
 })
 export class CLIModule {}

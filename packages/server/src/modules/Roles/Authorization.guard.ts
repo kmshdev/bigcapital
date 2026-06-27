@@ -10,6 +10,8 @@ import { ClsService } from 'nestjs-cls';
 import { ABILITIES_CACHE, getAbilityForRole } from './TenantAbilities';
 import { TenantModelProxy } from '../System/models/TenantBaseModel';
 import { TenantUser } from '../Tenancy/TenancyModels/models/TenantUser.model';
+import { UserTenant } from '../System/models/UserTenant.model';
+import { TenantModel } from '../System/models/TenantModel';
 
 /**
  * Authorization guard for checking user abilities
@@ -21,6 +23,12 @@ export class AuthorizationGuard implements CanActivate {
 
     @Inject(TenantUser.name)
     private readonly tenantUserModel: TenantModelProxy<typeof TenantUser>,
+
+    @Inject(UserTenant.name)
+    private readonly userTenantModel: typeof UserTenant,
+
+    @Inject(TenantModel.name)
+    private readonly tenantModel: typeof TenantModel,
   ) {}
 
   /**
@@ -32,24 +40,43 @@ export class AuthorizationGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const { user } = request as any;
     const userId = this.clsService.get('userId');
+    const organizationId = this.clsService.get('organizationId');
+    const cacheKey = `${userId}:${organizationId || 'tenant-agnostic'}`;
 
-    if (ABILITIES_CACHE.has(userId)) {
-      (request as any).ability = ABILITIES_CACHE.get(userId);
+    if (ABILITIES_CACHE.has(cacheKey)) {
+      (request as any).ability = ABILITIES_CACHE.get(cacheKey);
     } else {
       const ability = await this.getAbilityForUser();
       (request as any).ability = ability;
-      ABILITIES_CACHE.set(user.id, ability);
+      ABILITIES_CACHE.set(cacheKey, ability);
     }
     return true;
   }
 
   async getAbilityForUser() {
     const userId = this.clsService.get('userId');
+    const organizationId = this.clsService.get('organizationId');
     const tenantUser = await this.tenantUserModel()
       .query()
       .findOne('systemUserId', userId)
       .withGraphFetched('role.permissions');
+    const membershipRole = await this.getMembershipRole(userId, organizationId);
 
-    return getAbilityForRole(tenantUser.role);
+    return getAbilityForRole(tenantUser.role, membershipRole);
+  }
+
+  private async getMembershipRole(userId: number, organizationId?: string) {
+    if (!organizationId) {
+      return undefined;
+    }
+    const tenant = await this.tenantModel.query().findOne({ organizationId });
+    if (!tenant) {
+      return undefined;
+    }
+    const membership = await this.userTenantModel
+      .query()
+      .findOne({ userId, tenantId: tenant.id });
+
+    return membership?.role;
   }
 }

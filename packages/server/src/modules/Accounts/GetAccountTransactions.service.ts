@@ -5,10 +5,11 @@ import {
 import { AccountTransactionTransformer } from './AccountTransaction.transformer';
 import { AccountTransaction } from './models/AccountTransaction.model';
 import { Account } from './models/Account.model';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { TransformerInjectable } from '../Transformer/TransformerInjectable.service';
 import { TenantModelProxy } from '../System/models/TenantBaseModel';
 import { GetAccountTransactionResponseDto } from './dtos/GetAccountTransactionResponse.dto';
+import { CashVaultAccessService } from '../CashVault/CashVaultAccess.service';
 
 @Injectable()
 export class GetAccountTransactionsService {
@@ -22,6 +23,9 @@ export class GetAccountTransactionsService {
 
     @Inject(Account.name)
     private readonly account: TenantModelProxy<typeof Account>,
+
+    @Optional()
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   /**
@@ -32,8 +36,13 @@ export class GetAccountTransactionsService {
     filter: IAccountsTransactionsFilter,
   ): Promise<Array<GetAccountTransactionResponseDto>> => {
     // Retrieve the given account or throw not found error.
+    let account: any;
     if (filter.accountId) {
-      await this.account().query().findById(filter.accountId).throwIfNotFound();
+      account = await this.account()
+        .query()
+        .findById(filter.accountId)
+        .throwIfNotFound();
+      this.guardCashVaultAccount(account, (filter as any).cashVaultAccess);
     }
     const transactions = await this.accountTransaction()
       .query()
@@ -53,4 +62,17 @@ export class GetAccountTransactionsService {
       new AccountTransactionTransformer(),
     );
   };
+
+  private guardCashVaultAccount(account: any, cashVaultAccess?: any) {
+    if (!account?.isCashVault && !account?.is_cash_vault) {
+      return;
+    }
+    if (!cashVaultAccess || !this.cashVaultAccess) {
+      throw new Error('cash_vault_view_permission_required');
+    }
+    const decision = this.cashVaultAccess.canViewCashVault(cashVaultAccess);
+    if (!decision.allowed) {
+      throw new Error((decision as any).reason);
+    }
+  }
 }

@@ -6,6 +6,26 @@ import { RESOURCES_TYPES } from '@/constants/resourcesTypes';
 const SUBSCRIPTION_TYPE = {
   MAIN: 'main',
 };
+const disabledDashboardRoutePrefixes = [
+  '/estimates',
+  '/invoices',
+  '/receipts',
+  '/credit-notes',
+  '/payments-received',
+  '/payment-received',
+  '/bills',
+  '/vendor-credits',
+  '/payments-made',
+  '/customers',
+  '/vendors',
+  '/items',
+  '/item/categories',
+  '/inventory-adjustments',
+  '/warehouses-transfers',
+  '/cashflow-accounts',
+  '/bank-rules',
+];
+
 export const getDashboardRoutes = () => [
   // Accounts.
   {
@@ -29,6 +49,17 @@ export const getDashboardRoutes = () => [
     hotkey: 'shift+a',
     pageTitle: intl.get('accounts_chart'),
     defaultSearchResource: RESOURCES_TYPES.ACCOUNT,
+    subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
+  },
+  {
+    path: `/cash-vault`,
+    component: lazy(() =>
+      import('@/containers/CashVault').then((m) => ({
+        default: m.CashVaultManagementPage,
+      })),
+    ),
+    breadcrumb: intl.get('cash_vault.management.title'),
+    pageTitle: intl.get('cash_vault.management.title'),
     subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
   },
   // Accounting.
@@ -540,6 +571,18 @@ export const getDashboardRoutes = () => [
     hotkey: 'ctrl+shift+x',
     pageTitle: 'Expenses Import',
     sidebarExpand: false,
+    backLink: true,
+    subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
+  },
+  {
+    path: `/expenses/sheet-import`,
+    component: lazy(() =>
+      import('@/containers/Import/ExpenseSheetImport').then((m) => ({
+        default: m.ExpenseSheetImport,
+      })),
+    ),
+    breadcrumb: intl.get('expense_sheet_import.title'),
+    pageTitle: intl.get('expense_sheet_import.title'),
     backLink: true,
     subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
   },
@@ -1343,4 +1386,7 @@ export const getDashboardRoutes = () => [
     breadcrumb: intl.get('homepage'),
     subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
   },
-];
+].filter(
+  ({ path }) =>
+    !disabledDashboardRoutePrefixes.some((prefix) => path.startsWith(prefix)),
+);

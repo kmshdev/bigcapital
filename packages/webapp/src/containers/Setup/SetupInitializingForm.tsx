@@ -35,14 +35,14 @@ function SetupInitializingFormInner({ setOrganizationSetupCompleted }) {
   const isFailed = Boolean(jobState?.isFailed);
   const isCompleted = Boolean(jobState?.isCompleted);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isCompleted) {
       refetch();
       setIsJobDone(true);
     }
   }, [refetch, isCompleted, setOrganizationSetupCompleted]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isSuccess && isJobDone) {
       setOrganizationSetupCompleted(true);
       setIsJobDone(false);

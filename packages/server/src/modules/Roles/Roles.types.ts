@@ -65,6 +65,13 @@ export enum AbilitySubject {
   Warehouse = 'Warehouse',
   Branch = 'Branch',
   Attachment = 'Attachment',
+  CashVault = 'CashVault',
+}
+
+export enum CashVaultAction {
+  Manage = 'Manage',
+  Entry = 'Entry',
+  View = 'View',
 }
 
 export interface IRoleCreatedPayload {

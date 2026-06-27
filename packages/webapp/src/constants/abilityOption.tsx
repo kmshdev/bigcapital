@@ -24,6 +24,7 @@ export const AbilitySubject = {
   TaxRate: 'TaxRate',
   BankRule: 'BankRule',
   AuditLog: 'AuditLog',
+  CashVault: 'CashVault',
 };
 
 export const ItemAction = {
@@ -144,6 +145,12 @@ export const CashflowAction = {
   View: 'View',
   Create: 'Create',
   Delete: 'Delete',
+};
+
+export const CashVaultAction = {
+  Manage: 'Manage',
+  Entry: 'Entry',
+  View: 'View',
 };
 
 export const ProjectAction = {

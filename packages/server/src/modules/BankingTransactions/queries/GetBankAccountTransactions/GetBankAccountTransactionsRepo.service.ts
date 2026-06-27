@@ -1,4 +1,4 @@
-import { Inject, Injectable, Scope } from '@nestjs/common';
+import { Inject, Injectable, Optional, Scope } from '@nestjs/common';
 import { ICashflowAccountTransactionsQuery } from '../../types/BankingTransactions.types';
 import {
   groupMatchedBankTransactions,
@@ -6,8 +6,10 @@ import {
 } from './_utils';
 import { TenantModelProxy } from '@/modules/System/models/TenantBaseModel';
 import { AccountTransaction } from '@/modules/Accounts/models/AccountTransaction.model';
+import { Account } from '@/modules/Accounts/models/Account.model';
 import { UncategorizedBankTransaction } from '../../models/UncategorizedBankTransaction';
 import { MatchedBankTransaction } from '@/modules/BankingMatching/models/MatchedBankTransaction';
+import { CashVaultAccessService } from '@/modules/CashVault/CashVaultAccess.service';
 
 @Injectable({ scope: Scope.REQUEST })
 export class GetBankAccountTransactionsRepository {
@@ -40,6 +42,13 @@ export class GetBankAccountTransactionsRepository {
     private readonly matchedBankTransactionModel: TenantModelProxy<
       typeof MatchedBankTransaction
     >,
+
+    @Optional()
+    @Inject(Account.name)
+    private readonly accountModel?: TenantModelProxy<typeof Account>,
+
+    @Optional()
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   setQuery(query: ICashflowAccountTransactionsQuery) {
@@ -50,6 +59,7 @@ export class GetBankAccountTransactionsRepository {
    * Async initalize the resources.
    */
   async asyncInit() {
+    await this.guardCashVaultAccountHistory();
     await this.initCashflowAccountTransactions();
     await this.initCashflowAccountOpeningBalance();
     await this.initCategorizedTransactions();
@@ -136,5 +146,26 @@ export class GetBankAccountTransactionsRepository {
     this.matchedBankTransactionsMapByRef = groupMatchedBankTransactions(
       matchedBankTransactions,
     );
+  }
+
+  private async guardCashVaultAccountHistory() {
+    if (!this.accountModel || !this.query?.accountId) {
+      return;
+    }
+    const account = await this.accountModel()
+      .query()
+      .findById(this.query.accountId)
+      .throwIfNotFound();
+    if (!account?.isCashVault) {
+      return;
+    }
+    const cashVaultAccess = (this.query as any).cashVaultAccess;
+    if (!cashVaultAccess || !this.cashVaultAccess) {
+      throw new Error('cash_vault_view_permission_required');
+    }
+    const decision = this.cashVaultAccess.canViewCashVault(cashVaultAccess);
+    if (!decision.allowed) {
+      throw new Error((decision as any).reason);
+    }
   }
 }

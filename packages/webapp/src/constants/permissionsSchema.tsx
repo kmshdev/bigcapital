@@ -18,6 +18,7 @@ import {
   SaleReceiptAction,
   VendorAction,
   VendorCreditAction,
+  CashVaultAction,
 } from './abilityOption';
 
 export const ModulePermissionsStyle = {
@@ -522,6 +523,22 @@ export const getPermissionsSchema = () => [
           {
             label: intl.get('permissions.column.transactions_locking'),
             key: AccountAction.TransactionsLocking,
+          },
+        ],
+      },
+      {
+        label: intl.get('permissions.cash_vault'),
+        subject: AbilitySubject.CashVault,
+        permissions: [
+          {
+            label: intl.get('ability.manage'),
+            key: CashVaultAction.Manage,
+            relatedColumn: PermissionColumn.Edit,
+          },
+          {
+            label: intl.get('ability.entry'),
+            key: CashVaultAction.Entry,
+            relatedColumn: PermissionColumn.Create,
           },
         ],
       },

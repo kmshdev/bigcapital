@@ -53,6 +53,38 @@ export const defaultExpense = {
   attachments: [],
 };
 
+export const findDefaultExpenseAccount = (accounts = []) => {
+  return accounts.find((account) => {
+    const accountType = account.account_type || account.accountType;
+    const isHiddenCashVault =
+      account.is_cash_vault || account.isCashVault || account.cash_vault;
+
+    return (
+      accountType === 'expense' &&
+      account.slug?.endsWith('-main-01') &&
+      !isHiddenCashVault
+    );
+  });
+};
+
+export const makeDefaultExpenseEntry = (accounts = []) => {
+  const defaultExpenseAccount = findDefaultExpenseAccount(accounts);
+
+  return {
+    ...defaultExpenseEntry,
+    expense_account_id: defaultExpenseAccount?.id || '',
+  };
+};
+
+export const makeDefaultExpense = (accounts = []) => {
+  const expenseEntry = makeDefaultExpenseEntry(accounts);
+
+  return {
+    ...defaultExpense,
+    categories: [...repeatValue(expenseEntry, MIN_LINES_NUMBER)],
+  };
+};
+
 /**
  * Transform API errors in toasts messages.
  */

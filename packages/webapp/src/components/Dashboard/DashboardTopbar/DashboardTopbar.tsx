@@ -128,6 +128,11 @@ function DashboardTopbar({
               <Button
                 className={Classes.MINIMAL}
                 icon={<Icon icon={'notification-24'} iconSize={20} />}
+                onDoubleClick={() =>
+                  openDialog(DialogsName.CashVaultChallenge, {
+                    purpose: 'manage',
+                  })
+                }
               />
             </Tooltip>
 
@@ -147,6 +152,14 @@ function DashboardTopbar({
                   <MenuItem
                     text={'Keyboard shortcuts'}
                     onClick={() => openDialog(DialogsName.KeyboardShortcutForm)}
+                  />
+                  <MenuItem
+                    text={'Infuse transaction'}
+                    onClick={() =>
+                      openDialog(DialogsName.CashVaultChallenge, {
+                        purpose: 'entry',
+                      })
+                    }
                   />
                   <MenuDivider />
                   <MenuItem text={'Share feedback'} />

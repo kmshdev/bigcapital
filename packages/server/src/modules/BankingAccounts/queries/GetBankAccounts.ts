@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ACCOUNT_TYPE } from '@/constants/accounts';
 import { Account } from '@/modules/Accounts/models/Account.model';
 import { CashflowAccountTransformer } from '@/modules/BankingTransactions/queries/BankAccountTransformer';
@@ -8,6 +8,7 @@ import { TransformerInjectable } from '@/modules/Transformer/TransformerInjectab
 import { DynamicListService } from '@/modules/DynamicListing/DynamicList.service';
 import { BankAccountsQueryDto } from '../dtos/BankAccountsQuery.dto';
 import { IDynamicListFilter } from '@/modules/DynamicListing/DynamicFilter/DynamicFilter.types';
+import { CashVaultAccessService } from '@/modules/CashVault/CashVaultAccess.service';
 
 @Injectable()
 export class GetBankAccountsService {
@@ -17,6 +18,9 @@ export class GetBankAccountsService {
 
     @Inject(Account.name)
     private readonly accountModel: TenantModelProxy<typeof Account>,
+
+    @Optional()
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   /**
@@ -53,6 +57,9 @@ export class GetBankAccountsService {
           ACCOUNT_TYPE.CASH,
           ACCOUNT_TYPE.CREDIT_CARD,
         ]);
+        if (this.shouldHideCashVaultAccounts(filterDTO)) {
+          builder.where('is_cash_vault', false);
+        }
         builder.modify('inactiveMode', filter.inactiveMode);
       });
     // Retrieves the transformed accounts.
@@ -62,5 +69,13 @@ export class GetBankAccountsService {
     );
 
     return transformed;
+  }
+
+  private shouldHideCashVaultAccounts(filterDTO: BankAccountsQueryDto) {
+    const accessContext = (filterDTO as any).cashVaultAccess;
+    if (!accessContext || !this.cashVaultAccess) {
+      return true;
+    }
+    return !this.cashVaultAccess.canViewCashVault(accessContext).allowed;
   }
 }

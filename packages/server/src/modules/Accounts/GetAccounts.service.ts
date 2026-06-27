@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import * as R from 'ramda';
 import { IAccountsFilter, IAccountsStructureType } from './Accounts.types';
 import { DynamicListService } from '../DynamicListing/DynamicList.service';
@@ -9,6 +9,7 @@ import { AccountRepository } from './repositories/Account.repository';
 import { IFilterMeta } from '@/interfaces/Model';
 import { TenantModelProxy } from '../System/models/TenantBaseModel';
 import { GetAccountsQueryDto } from './dtos/GetAccountsQuery.dto';
+import { CashVaultAccessService } from '../CashVault/CashVaultAccess.service';
 
 @Injectable()
 export class GetAccountsService {
@@ -19,6 +20,9 @@ export class GetAccountsService {
 
     @Inject(Account.name)
     private readonly accountModel: TenantModelProxy<typeof Account>,
+
+    @Optional()
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   /**
@@ -50,6 +54,9 @@ export class GetAccountsService {
       .onBuild((builder) => {
         dynamicList.buildQuery()(builder);
         builder.modify('inactiveMode', filterDto.onlyInactive);
+        if (this.shouldHideCashVaultAccounts(filterDto)) {
+          builder.where('is_cash_vault', false);
+        }
       });
     const accountsGraph = await this.accountRepository.getDependencyGraph();
 
@@ -72,5 +79,13 @@ export class GetAccountsService {
    */
   private parseListFilterDTO(filterDTO) {
     return R.compose(this.dynamicListService.parseStringifiedFilter)(filterDTO);
+  }
+
+  private shouldHideCashVaultAccounts(filterDto: Partial<GetAccountsQueryDto>) {
+    const accessContext = (filterDto as any).cashVaultAccess;
+    if (!accessContext || !this.cashVaultAccess) {
+      return true;
+    }
+    return !this.cashVaultAccess.canViewCashVault(accessContext).allowed;
   }
 }

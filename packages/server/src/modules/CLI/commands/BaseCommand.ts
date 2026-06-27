@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Knex from 'knex';
 import { knexSnakeCaseMappers } from 'objection';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export abstract class BaseCommand extends CommandRunner {
@@ -43,10 +45,7 @@ export abstract class BaseCommand extends CommandRunner {
         charset: 'utf8',
       },
       migrations: {
-        directory:
-          this.configService.get('tenantDatabase.migrationsDir') ||
-          './src/database/migrations',
-        loadExtensions: ['.js'],
+        migrationSource: this.getTenantMigrationSource(),
       },
       seeds: {
         directory:
@@ -59,6 +58,23 @@ export abstract class BaseCommand extends CommandRunner {
       },
       ...knexSnakeCaseMappers({ upperCase: true }),
     });
+  }
+
+  private getTenantMigrationSource() {
+    const directory =
+      this.configService.get('tenantDatabase.migrationsDir') ||
+      './src/database/migrations';
+
+    return {
+      getMigrations: async () =>
+        fs
+          .readdirSync(directory)
+          .filter((file) => /\.(js|ts)$/.test(file))
+          .filter((file) => !/\.spec\.(js|ts)$/.test(file))
+          .sort(),
+      getMigrationName: (migration) => migration,
+      getMigration: async (migration) => require(path.join(directory, migration)),
+    };
   }
 
   protected getAllSystemTenants(knex: any) {

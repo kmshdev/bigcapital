@@ -1,6 +1,7 @@
 {
   "name": "bigcapital-monorepo",
   "private": true,
+  "packageManager": "pnpm@9.1.2",
   "scripts": {
     "dev": "lerna run dev",
     "build": "lerna run build",
@@ -8,7 +9,7 @@
     "dev:webapp": "lerna run dev --scope \"@bigcapital/webapp\" --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\"",
     "build:webapp": "lerna run build --scope \"@bigcapital/webapp\" --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\" --scope \"@bigcapital/sdk-ts\"",
     "dev:server": "lerna run dev --scope \"@bigcapital/server\" --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\" --scope \"@bigcapital/email-components\"",
-"build:shared": "lerna run build --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\" --scope \"@bigcapital/email-components\" --scope \"@bigcapital/sdk-ts\"",
+    "build:shared": "lerna run build --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\" --scope \"@bigcapital/email-components\" --scope \"@bigcapital/sdk-ts\"",
     "build:server": "lerna run build --scope \"@bigcapital/server\" --scope \"@bigcapital/utils\" --scope \"@bigcapital/pdf-templates\" --scope \"@bigcapital/email-components\"",
     "serve:server": "lerna run serve --scope \"@bigcapital/server\" --scope \"@bigcapital/utils\"",
     "server:start": "lerna run start:dev --scope \"@bigcapital/server\"",
@@ -22,9 +23,10 @@
     "tenants:migrate:rollback": "lerna run cli:tenants:migrate:rollback --scope \"@bigcapital/server\"",
     "system:migrate:latest": "lerna run cli:system:migrate:latest --scope \"@bigcapital/server\"",
     "tenants:migrate:latest": "lerna run cli:tenants:migrate:latest --scope \"@bigcapital/server\"",
-    "system:seed:latest": "lerna run cli:system:seed:latest --scope \"@bigcapital/server\"",
-    "tenants:seed:latest": "lerna run cli:tenants:seed:latest --scope \"@bigcapital/server\"",
-    "generate:sdk-types": "lerna run openapi:export --scope \"@bigcapital/server\" && lerna run generate --scope \"@bigcapital/sdk-ts\" && lerna run build --scope \"@bigcapital/sdk-ts\"",
+  "system:seed:latest": "lerna run cli:system:seed:latest --scope \"@bigcapital/server\"",
+  "tenants:seed:latest": "lerna run cli:tenants:seed:latest --scope \"@bigcapital/server\"",
+  "local:bookeepz:bootstrap": "lerna run cli:local:bookeepz:bootstrap --scope \"@bigcapital/server\"",
+  "generate:sdk-types": "lerna run openapi:export --scope \"@bigcapital/server\" && lerna run generate --scope \"@bigcapital/sdk-ts\" && lerna run build --scope \"@bigcapital/sdk-ts\"",
     "format": "lerna run format",
     "format:check": "lerna run format:check"
   },

@@ -95,4 +95,6 @@ export enum DialogsName {
   ApiKeysGenerate = 'api-keys-generate',
   WorkspaceDelete = 'workspace-delete',
   WorkspaceInactivate = 'workspace-inactivate',
+  CashVaultEntry = 'cash-vault-entry',
+  CashVaultChallenge = 'cash-vault-challenge',
 }

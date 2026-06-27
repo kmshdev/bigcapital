@@ -96,6 +96,14 @@ Backend-only account types that may remain for framework assumptions, reports, a
 
 Unsupported normal-app account and feature surfaces should be hidden from navigation and routine creation flows rather than deleted from the database schema. Ledger correctness and Bigcapital internals depend on accounts and account transactions continuing to exist.
 
+Each of the four companies must have one default expense account:
+
+- Account name format: `<business_name>_main_01`
+- Account type: `expense`
+- Currency: `INR`
+
+This account is the default expense account for imported and manually entered expense rows when the user has not selected a more specific supported expense category.
+
 ## UI Field Mapping
 
 The normal UI should use the workbook language wherever practical. These labels apply to both spreadsheet import and manual entry. The spreadsheet is an allowed bulk-input path, not the only way to use the app.
@@ -149,6 +157,7 @@ Manual entry remains a first-class workflow for the normal app.
 - Expenses can be created and edited directly using supported expense categories.
 - Tax Rates can be created and edited directly for GST handling.
 - Manual forms should use the same validation and posting rules as imported rows where the fields overlap.
+- Manual expense forms should default to the current company's `<business_name>_main_01` expense account when no explicit category is selected.
 - Manual entry screens should not expose unsupported sales, inventory, banking, customer, or hidden Cash Vault controls.
 
 ## Posting Model
@@ -167,6 +176,8 @@ All approved workbook fields are nullable. Empty cells do not fail the whole row
 8. Represent `GST on RCM`, `TDS Deducted`, and `LF & Intt` through configured expense/tax/payable accounts when those values are present.
 9. If payment data is present, create or update Payment Made with available `Date`, `Mode of Payment`, and `Payment` values and allocate it to a bill when a matching bill can be resolved.
 10. Recalculate `Balance Payable` from posted bill and payment data whenever a bill exists.
+
+When a row creates an expense posting and no explicit expense account can be inferred, the posting plan uses the current company's `<business_name>_main_01` expense account.
 
 The preview must show what will be created or updated before posting.
 

@@ -107,6 +107,8 @@ import { SocketModule } from '../Socket/Socket.module';
 import { EEModule } from '../EE/EE.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AppThrottleModule } from './AppThrottle.module';
+import { CashVaultModule } from '../CashVault/CashVault.module';
+import { ExpenseSheetImportModule } from '../ExpenseSheetImports/ExpenseSheetImport.module';
 
 @Module({
   imports: [
@@ -262,6 +264,8 @@ import { AppThrottleModule } from './AppThrottle.module';
     SocketModule,
     EEModule,
     ExchangeRatesModule,
+    CashVaultModule,
+    ExpenseSheetImportModule,
   ],
   controllers: [AppController],
   providers: [
