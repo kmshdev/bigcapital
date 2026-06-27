@@ -17,6 +17,5 @@ Use `pnpm` for this project.
 Read `.specify/memory/constitution.md` before creating or updating Speckit specs, plans, tasks, or implementation work.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Current Speckit plan: `specs/001-cash-vault-access/plan.md`
 <!-- SPECKIT END -->

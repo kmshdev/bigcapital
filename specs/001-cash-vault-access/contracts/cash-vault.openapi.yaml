@@ -1,0 +1,452 @@
+openapi: 3.0.3
+info:
+  title: Cash Vault Access API
+  version: 0.1.0
+  description: Tenant-local Cash Vault management, unlock, and Help-menu entry contracts.
+servers:
+  - url: /
+paths:
+  /cash-vault/accounts:
+    get:
+      summary: List Cash Vault accounts for owner or active full unlock users
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Cash Vault accounts visible to the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CashVaultAccount'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Mark an eligible cash account as Cash Vault
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesignateCashVaultAccountRequest'
+      responses:
+        '201':
+          description: Account marked as Cash Vault
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashVaultAccount'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /cash-vault/accounts/{accountId}:
+    delete:
+      summary: Remove Cash Vault designation from an account
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Account Cash Vault designation removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /cash-vault/entries:
+    post:
+      summary: Create a Help-menu Cash Vault deposit or withdrawal entry
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCashVaultEntryRequest'
+      responses:
+        '201':
+          description: Cash Vault entry accepted and posted through cashflow transaction path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashVaultEntryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /cash-vault/designated-admins:
+    get:
+      summary: List the two designated admins eligible for temporary full unlocks
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Designated admins
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 2
+                items:
+                  $ref: '#/components/schemas/CashVaultDesignatedAdmin'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      summary: Replace designated admins for temporary full unlock eligibility
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDesignatedAdminsRequest'
+      responses:
+        '200':
+          description: Designated admins updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /cash-vault/unlocks:
+    post:
+      summary: Grant temporary full Cash Vault access for a designated admin
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCashVaultUnlockRequest'
+      responses:
+        '201':
+          description: Temporary unlock granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashVaultUnlock'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /cash-vault/unlocks/{unlockId}/revoke:
+    post:
+      summary: Revoke a temporary Cash Vault unlock
+      tags: [CashVault]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: unlockId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Unlock revoked
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /expense-sheet-imports:
+    post:
+      summary: Upload an INR expense-sheet workbook for column mapping and preview
+      tags: [ExpenseSheetImports]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Workbook uploaded and available for mapping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseSheetImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /expense-sheet-imports/{importId}/mapping:
+    put:
+      summary: Save column mapping for an uploaded expense-sheet workbook
+      tags: [ExpenseSheetImports]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseSheetMappingRequest'
+      responses:
+        '200':
+          description: Mapping saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseSheetImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /expense-sheet-imports/{importId}/preview:
+    get:
+      summary: Preview validated INR expense-sheet rows before commit
+      tags: [ExpenseSheetImports]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Row-level import preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseSheetPreview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /expense-sheet-imports/{importId}/commit:
+    post:
+      summary: Commit accepted INR expense-sheet rows without Plaid dependency
+      tags: [ExpenseSheetImports]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Accepted rows committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseSheetCommitResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  parameters:
+    OrganizationId:
+      name: organization-id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Selected tenant/company id.
+  schemas:
+    CashVaultAccount:
+      type: object
+      required: [id, name, accountType, isCashVault]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        accountType:
+          type: string
+          enum: [cash]
+        isCashVault:
+          type: boolean
+        designatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    DesignateCashVaultAccountRequest:
+      type: object
+      required: [accountId]
+      properties:
+        accountId:
+          type: integer
+        entryEnabled:
+          type: boolean
+          default: false
+          description: When true, this Cash Vault account becomes the tenant Help-menu entry target.
+    CreateCashVaultEntryRequest:
+      type: object
+      required: [transactionType, amount, date, description, offsetAccountId]
+      properties:
+        transactionType:
+          type: string
+          enum: [deposit, withdrawal]
+        amount:
+          type: number
+          minimum: 0.01
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+          minLength: 1
+        referenceNo:
+          type: string
+        offsetAccountId:
+          type: integer
+        branchId:
+          type: integer
+    CashVaultEntryResponse:
+      type: object
+      required: [transactionId, transactionType, amount, date]
+      properties:
+        transactionId:
+          type: integer
+        transactionType:
+          type: string
+          enum: [deposit, withdrawal]
+        amount:
+          type: number
+        date:
+          type: string
+          format: date
+    CashVaultDesignatedAdmin:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+        displayName:
+          type: string
+    UpdateDesignatedAdminsRequest:
+      type: object
+      required: [userIds]
+      properties:
+        userIds:
+          type: array
+          minItems: 0
+          maxItems: 2
+          items:
+            type: integer
+    CreateCashVaultUnlockRequest:
+      type: object
+      required: [userId, expiresAt]
+      properties:
+        userId:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+    CashVaultUnlock:
+      type: object
+      required: [id, userId, expiresAt, active]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+    ExpenseSheetImport:
+      type: object
+      required: [id, status, currencyCode, sourceFilename]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [uploaded, mapped, validated, committed, failed]
+        currencyCode:
+          type: string
+          enum: [INR]
+        sourceFilename:
+          type: string
+        recognizedColumns:
+          type: array
+          items:
+            type: string
+        unsupportedColumns:
+          type: array
+          items:
+            type: string
+    ExpenseSheetMappingRequest:
+      type: object
+      required: [mapping]
+      properties:
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Maps uploaded workbook column names to approved canonical schema fields.
+    ExpenseSheetPreview:
+      type: object
+      required: [importId, currencyCode, rows]
+      properties:
+        importId:
+          type: integer
+        currencyCode:
+          type: string
+          enum: [INR]
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseSheetPreviewRow'
+    ExpenseSheetPreviewRow:
+      type: object
+      required: [rowNumber, values, errors]
+      properties:
+        rowNumber:
+          type: integer
+        values:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            type: string
+    ExpenseSheetCommitResponse:
+      type: object
+      required: [importId, committedRows, rejectedRows]
+      properties:
+        importId:
+          type: integer
+        committedRows:
+          type: integer
+        rejectedRows:
+          type: integer
+  responses:
+    BadRequest:
+      description: Invalid request or unsupported Cash Vault operation
+    Forbidden:
+      description: Missing Cash Vault permission, expired unlock, wrong tenant, or not a designated admin
+    NotFound:
+      description: Cash Vault resource not found in the selected tenant
