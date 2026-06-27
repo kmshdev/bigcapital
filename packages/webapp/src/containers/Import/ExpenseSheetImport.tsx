@@ -34,11 +34,17 @@ const sampleRows = JSON.stringify(
 
 export function ExpenseSheetImport() {
   const [filename, setFilename] = useState('expense-sheet.xlsx');
+  const [file, setFile] = useState(null);
   const [importId, setImportId] = useState('');
   const [rowsJson, setRowsJson] = useState(sampleRows);
   const [previewRows, setPreviewRows] = useState([]);
   const upload = useExpenseSheetImportUpload({
-    onSuccess: (response) => setImportId(String(response.id || response.importId)),
+    onSuccess: (response) => {
+      setImportId(String(response.id || response.importId));
+      if (response.rows) {
+        setRowsJson(JSON.stringify(response.rows, null, 2));
+      }
+    },
   });
   const mapping = useExpenseSheetImportMapping();
   const preview = useExpenseSheetImportPreview({
@@ -49,7 +55,11 @@ export function ExpenseSheetImport() {
   const parsedRows = () => JSON.parse(rowsJson || '[]');
 
   const handleUpload = () => {
-    upload.mutate({ sourceFilename: filename, uploadedByUserId: 0 });
+    upload.mutate({
+      file,
+      sourceFilename: file?.name || filename,
+      uploadedByUserId: 0,
+    });
   };
 
   const handleMapping = () => {
@@ -79,6 +89,19 @@ export function ExpenseSheetImport() {
             <InputGroup
               value={filename}
               onChange={(event) => setFilename(event.target.value)}
+            />
+          </FormGroup>
+          <FormGroup label={<T id="expense_sheet_import.title" />}>
+            <InputGroup
+              type="file"
+              inputProps={{ accept: '.xlsx,.xls,.csv' }}
+              onChange={(event) => {
+                const nextFile = event.currentTarget.files?.[0] || null;
+                setFile(nextFile);
+                if (nextFile) {
+                  setFilename(nextFile.name);
+                }
+              }}
             />
           </FormGroup>
           <Button intent={Intent.PRIMARY} onClick={handleUpload}>

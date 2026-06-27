@@ -38,13 +38,6 @@ export class CashVaultChallengeService {
       throw new Error('cash_vault_unlock_user_not_designated');
     }
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const unlock = await this.unlocks.grantUnlock({
-      userId,
-      grantedByUserId: userId,
-      expiresAt,
-    });
-
-    return { purpose, granted: true, unlockId: unlock.id };
+    return { purpose, granted: true };
   }
 }

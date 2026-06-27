@@ -1,7 +1,16 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiCommonHeaders } from '@/common/decorators/ApiCommonHeaders';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ExpenseSheetImportApplication } from './ExpenseSheetImport.application';
+import { uploadImportFileMulterOptions } from '../Import/ImportMulter.utils';
 
 @ApiTags('Expense Sheet Imports')
 @ApiCommonHeaders()
@@ -11,8 +20,34 @@ export class ExpenseSheetImportController {
 
   @Post()
   @ApiOperation({ summary: 'Create an INR expense-sheet import.' })
-  public upload(@Body() body: { sourceFilename: string; uploadedByUserId?: number }) {
-    return this.application.upload(body);
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        uploadedByUserId: { type: 'number' },
+        sourceFilename: { type: 'string' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', uploadImportFileMulterOptions))
+  public upload(
+    @UploadedFile()
+    file:
+      | Express.Multer.File
+      | { sourceFilename?: string; uploadedByUserId?: number },
+    @Body() body?: { sourceFilename?: string; uploadedByUserId?: number },
+  ) {
+    const uploadedFile = file as Express.Multer.File;
+    if (uploadedFile?.buffer || uploadedFile?.filename) {
+      return this.application.uploadFromFile(uploadedFile, body);
+    }
+    const uploadBody = body || (file as any);
+    return this.application.upload({
+      sourceFilename: uploadBody.sourceFilename,
+      uploadedByUserId: uploadBody.uploadedByUserId,
+    });
   }
 
   @Post(':importId/mapping')
@@ -35,7 +70,10 @@ export class ExpenseSheetImportController {
 
   @Post(':importId/commit')
   @ApiOperation({ summary: 'Commit valid expense-sheet rows.' })
-  public commit(@Param('importId') importId: number, @Body() body: { rows: any[] }) {
+  public commit(
+    @Param('importId') importId: number,
+    @Body() body: { rows: any[] },
+  ) {
     return this.application.commit(importId, body);
   }
 }

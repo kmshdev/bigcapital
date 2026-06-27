@@ -38,7 +38,7 @@ export class GetAccount {
       .withGraphFetched('plaidItem')
       .throwIfNotFound();
 
-    this.guardCashVaultAccount(account, options.cashVaultAccess);
+    await this.guardCashVaultAccount(account, options.cashVaultAccess);
 
     const accountsGraph = await this.accountRepository.getDependencyGraph();
 
@@ -56,14 +56,16 @@ export class GetAccount {
     return transformed;
   }
 
-  private guardCashVaultAccount(account: any, accessContext?: any) {
+  private async guardCashVaultAccount(account: any, accessContext?: any) {
     if (!account?.isCashVault && !account?.is_cash_vault) {
       return;
     }
-    if (!accessContext || !this.cashVaultAccess) {
+    const currentAccess =
+      accessContext || (await this.cashVaultAccess?.getCurrentUserAccess());
+    if (!currentAccess || !this.cashVaultAccess) {
       throw new Error('cash_vault_view_permission_required');
     }
-    const decision = this.cashVaultAccess.canViewCashVault(accessContext);
+    const decision = this.cashVaultAccess.canViewCashVault(currentAccess);
     if (!decision.allowed) {
       throw new Error((decision as any).reason);
     }

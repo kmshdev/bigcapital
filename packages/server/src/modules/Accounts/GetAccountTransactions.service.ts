@@ -42,7 +42,10 @@ export class GetAccountTransactionsService {
         .query()
         .findById(filter.accountId)
         .throwIfNotFound();
-      this.guardCashVaultAccount(account, (filter as any).cashVaultAccess);
+      await this.guardCashVaultAccount(
+        account,
+        (filter as any).cashVaultAccess,
+      );
     }
     const transactions = await this.accountTransaction()
       .query()
@@ -63,14 +66,16 @@ export class GetAccountTransactionsService {
     );
   };
 
-  private guardCashVaultAccount(account: any, cashVaultAccess?: any) {
+  private async guardCashVaultAccount(account: any, cashVaultAccess?: any) {
     if (!account?.isCashVault && !account?.is_cash_vault) {
       return;
     }
-    if (!cashVaultAccess || !this.cashVaultAccess) {
+    const accessContext =
+      cashVaultAccess || (await this.cashVaultAccess?.getCurrentUserAccess());
+    if (!accessContext || !this.cashVaultAccess) {
       throw new Error('cash_vault_view_permission_required');
     }
-    const decision = this.cashVaultAccess.canViewCashVault(cashVaultAccess);
+    const decision = this.cashVaultAccess.canViewCashVault(accessContext);
     if (!decision.allowed) {
       throw new Error((decision as any).reason);
     }

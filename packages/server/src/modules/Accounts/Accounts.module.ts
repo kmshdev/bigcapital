@@ -22,11 +22,18 @@ import { BulkActivateAccountsService } from './BulkActivateAccounts.service';
 import { BulkDeleteAccountsService } from './BulkDeleteAccounts.service';
 import { ValidateBulkDeleteAccountsService } from './ValidateBulkDeleteAccounts.service';
 import { AccountsSettingsService } from './AccountsSettings.service';
+import { CashVaultAccessModule } from '../CashVault/CashVaultAccess.module';
 
 const models = [RegisterTenancyModel(BankAccount)];
 
 @Module({
-  imports: [TenancyModule, TenancyDatabaseModule, DynamicListModule, ...models],
+  imports: [
+    TenancyModule,
+    TenancyDatabaseModule,
+    DynamicListModule,
+    CashVaultAccessModule,
+    ...models,
+  ],
   controllers: [AccountsController],
   providers: [
     AccountsApplication,

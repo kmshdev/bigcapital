@@ -46,6 +46,8 @@ export class GetBankAccountsService {
       this.accountModel(),
       filter as IDynamicListFilter,
     );
+    const hideCashVaultAccounts =
+      await this.shouldHideCashVaultAccounts(filterDTO);
     // Retrieve accounts model based on the given query.
     const accounts = await this.accountModel()
       .query()
@@ -57,7 +59,7 @@ export class GetBankAccountsService {
           ACCOUNT_TYPE.CASH,
           ACCOUNT_TYPE.CREDIT_CARD,
         ]);
-        if (this.shouldHideCashVaultAccounts(filterDTO)) {
+        if (hideCashVaultAccounts) {
           builder.where('is_cash_vault', false);
         }
         builder.modify('inactiveMode', filter.inactiveMode);
@@ -71,8 +73,10 @@ export class GetBankAccountsService {
     return transformed;
   }
 
-  private shouldHideCashVaultAccounts(filterDTO: BankAccountsQueryDto) {
-    const accessContext = (filterDTO as any).cashVaultAccess;
+  private async shouldHideCashVaultAccounts(filterDTO: BankAccountsQueryDto) {
+    const accessContext =
+      (filterDTO as any).cashVaultAccess ||
+      (await this.cashVaultAccess?.getCurrentUserAccess());
     if (!accessContext || !this.cashVaultAccess) {
       return true;
     }

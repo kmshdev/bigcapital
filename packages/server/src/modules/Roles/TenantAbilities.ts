@@ -13,9 +13,16 @@ export const ABILITIES_CACHE = new LruCache(1000);
  * @param {} role
  * @returns
  */
-export function getAbilityForRole(role, membershipRole?: UserTenantRole) {
+export function getAbilityForRole(
+  role,
+  membershipRole?: UserTenantRole,
+  hasActiveCashVaultUnlock = false,
+) {
   const rules = getAbilitiesRolesConds(role);
   rules.push(...getCashVaultMembershipRules(membershipRole));
+  if (hasActiveCashVaultUnlock) {
+    rules.push(...getCashVaultFullAccessRules());
+  }
   return new Ability(rules);
 }
 
@@ -59,6 +66,14 @@ function getCashVaultMembershipRules(membershipRole?: UserTenantRole) {
     default:
       return [];
   }
+}
+
+function getCashVaultFullAccessRules() {
+  return [
+    { action: CashVaultAction.Manage, subject: AbilitySubject.CashVault },
+    { action: CashVaultAction.View, subject: AbilitySubject.CashVault },
+    { action: CashVaultAction.Entry, subject: AbilitySubject.CashVault },
+  ];
 }
 
 /**

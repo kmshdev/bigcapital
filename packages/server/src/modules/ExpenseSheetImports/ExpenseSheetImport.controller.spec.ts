@@ -10,10 +10,14 @@ describe('ExpenseSheetImportController', () => {
     };
     const controller = new ExpenseSheetImportController(app as any);
 
-    await expect(controller.upload({ sourceFilename: 'x.xlsx' })).resolves.toEqual({
+    await expect(
+      controller.upload({ sourceFilename: 'x.xlsx' }),
+    ).resolves.toEqual({
       importId: 1,
     });
-    await expect(controller.mapping(1, { headers: ['Bill No'] })).resolves.toEqual({
+    await expect(
+      controller.mapping(1, { headers: ['Bill No'] }),
+    ).resolves.toEqual({
       mapping: {},
     });
     await expect(controller.preview(1, { rows: [] })).resolves.toEqual({
@@ -22,6 +26,24 @@ describe('ExpenseSheetImportController', () => {
     await expect(controller.commit(1, { rows: [] })).resolves.toEqual({
       committed: 1,
       rejected: 0,
+    });
+  });
+
+  it('passes uploaded workbook files to the import application', async () => {
+    const file = {
+      originalname: 'expenses.xlsx',
+      buffer: Buffer.from('workbook-bytes'),
+    } as Express.Multer.File;
+    const app = {
+      uploadFromFile: jest.fn().mockResolvedValue({ importId: 7, rows: [] }),
+    };
+    const controller = new ExpenseSheetImportController(app as any);
+
+    await expect(
+      (controller.upload as any)(file, { uploadedByUserId: 12 }),
+    ).resolves.toEqual({ importId: 7, rows: [] });
+    expect(app.uploadFromFile).toHaveBeenCalledWith(file, {
+      uploadedByUserId: 12,
     });
   });
 });

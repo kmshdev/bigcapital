@@ -159,7 +159,9 @@ export class GetBankAccountTransactionsRepository {
     if (!account?.isCashVault) {
       return;
     }
-    const cashVaultAccess = (this.query as any).cashVaultAccess;
+    const cashVaultAccess =
+      (this.query as any).cashVaultAccess ||
+      (await this.cashVaultAccess?.getCurrentUserAccess());
     if (!cashVaultAccess || !this.cashVaultAccess) {
       throw new Error('cash_vault_view_permission_required');
     }

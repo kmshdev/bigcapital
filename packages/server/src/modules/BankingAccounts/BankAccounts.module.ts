@@ -17,6 +17,7 @@ import { DynamicListModule } from '../DynamicListing/DynamicList.module';
 import { GetBankAccountSummary } from './queries/GetBankAccountSummary';
 import { MutateBaseCurrencyAccountsSubscriber } from '../Accounts/susbcribers/MutateBaseCurrencyAccounts.subscriber';
 import { MutateBaseCurrencyAccounts } from '../Accounts/MutateBaseCurrencyAccounts';
+import { CashVaultAccessModule } from '../CashVault/CashVaultAccess.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MutateBaseCurrencyAccounts } from '../Accounts/MutateBaseCurrencyAccoun
     BankingTransactionsRegonizeModule,
     BankingTransactionsModule,
     DynamicListModule,
+    CashVaultAccessModule,
   ],
   providers: [
     DisconnectBankAccountService,

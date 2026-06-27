@@ -51,10 +51,9 @@ describe('CashVaultChallengeService', () => {
     ).rejects.toThrow('cash_vault_challenge_invalid');
   });
 
-  it('grants a temporary unlock for a designated owner admin management challenge', async () => {
+  it('verifies a designated admin management challenge without creating an unlock', async () => {
     passwordVerifier.verify.mockResolvedValue(true);
     designatedAdmins.isDesignatedAdmin.mockResolvedValue(true);
-    unlocks.grantUnlock.mockResolvedValue({ id: 9 });
     const service = new CashVaultChallengeService(
       passwordVerifier as any,
       designatedAdmins as any,
@@ -67,13 +66,8 @@ describe('CashVaultChallengeService', () => {
         password: 'cash-password',
         purpose: 'manage',
       }),
-    ).resolves.toEqual({ purpose: 'manage', granted: true, unlockId: 9 });
-    expect(unlocks.grantUnlock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 44,
-        grantedByUserId: 44,
-      }),
-    );
+    ).resolves.toEqual({ purpose: 'manage', granted: true });
+    expect(unlocks.grantUnlock).not.toHaveBeenCalled();
   });
 
   it('rejects management challenge for non-designated users', async () => {

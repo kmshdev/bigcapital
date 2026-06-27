@@ -6,6 +6,9 @@ import {
   getDefaultExpenseAccountName,
   getDefaultExpenseAccountSlug,
 } from '@/modules/Bookeepz/DefaultExpenseAccount';
+import { parseSheetData } from '@/modules/Import/sheet_utils';
+import { deleteImportFile, readImportFile } from '@/modules/Import/_utils';
+import { validateImportFileMagicBytes } from '@/modules/Import/ImportMulter.utils';
 
 @Injectable()
 export class ExpenseSheetImportApplication {
@@ -14,15 +17,49 @@ export class ExpenseSheetImportApplication {
     private readonly tenancyContext: TenancyContext,
   ) {}
 
-  public upload(body: { sourceFilename: string; uploadedByUserId?: number }) {
-    return this.commitService.upload(body.sourceFilename, body.uploadedByUserId);
+  public upload(body: { sourceFilename?: string; uploadedByUserId?: number }) {
+    return this.commitService.upload(
+      body.sourceFilename || 'expense-sheet.xlsx',
+      body.uploadedByUserId,
+    );
+  }
+
+  public async uploadFromFile(
+    file: Express.Multer.File,
+    body: { uploadedByUserId?: number } = {},
+  ) {
+    try {
+      const buffer = file.buffer || (await readImportFile(file.filename));
+      await validateImportFileMagicBytes(buffer);
+      const [rows, headers] = parseSheetData(buffer);
+      const importFile = await this.upload({
+        sourceFilename: file.originalname,
+        uploadedByUserId: body.uploadedByUserId,
+      });
+
+      return {
+        importId: importFile.id,
+        id: importFile.id,
+        sourceFilename: importFile.sourceFilename,
+        headers,
+        mapping: mapExpenseSheetHeaders(headers || []),
+        rows,
+      };
+    } finally {
+      if (!file.buffer && file.filename) {
+        await deleteImportFile(file.filename);
+      }
+    }
   }
 
   public mapping(_importId: number, body: { headers: string[] }) {
     return mapExpenseSheetHeaders(body.headers || []);
   }
 
-  public async preview(_importId: number, body: { rows: Record<string, unknown>[] }) {
+  public async preview(
+    _importId: number,
+    body: { rows: Record<string, unknown>[] },
+  ) {
     const tenant = await this.tenancyContext.getTenant(true);
     const business = {
       name: tenant.metadata.name,

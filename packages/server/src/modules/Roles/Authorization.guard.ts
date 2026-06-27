@@ -12,6 +12,7 @@ import { TenantModelProxy } from '../System/models/TenantBaseModel';
 import { TenantUser } from '../Tenancy/TenancyModels/models/TenantUser.model';
 import { UserTenant } from '../System/models/UserTenant.model';
 import { TenantModel } from '../System/models/TenantModel';
+import { CashVaultAccessService } from '../CashVault/CashVaultAccess.service';
 
 /**
  * Authorization guard for checking user abilities
@@ -29,6 +30,8 @@ export class AuthorizationGuard implements CanActivate {
 
     @Inject(TenantModel.name)
     private readonly tenantModel: typeof TenantModel,
+
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   /**
@@ -43,7 +46,7 @@ export class AuthorizationGuard implements CanActivate {
     const organizationId = this.clsService.get('organizationId');
     const cacheKey = `${userId}:${organizationId || 'tenant-agnostic'}`;
 
-    if (ABILITIES_CACHE.has(cacheKey)) {
+    if (!this.cashVaultAccess && ABILITIES_CACHE.has(cacheKey)) {
       (request as any).ability = ABILITIES_CACHE.get(cacheKey);
     } else {
       const ability = await this.getAbilityForUser();
@@ -61,8 +64,13 @@ export class AuthorizationGuard implements CanActivate {
       .findOne('systemUserId', userId)
       .withGraphFetched('role.permissions');
     const membershipRole = await this.getMembershipRole(userId, organizationId);
+    const cashVaultAccess = await this.cashVaultAccess?.getCurrentUserAccess();
 
-    return getAbilityForRole(tenantUser.role, membershipRole);
+    return getAbilityForRole(
+      tenantUser.role,
+      membershipRole,
+      Boolean(cashVaultAccess?.activeUnlock),
+    );
   }
 
   private async getMembershipRole(userId: number, organizationId?: string) {

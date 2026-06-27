@@ -49,4 +49,18 @@ describe('getAbilityForRole Cash Vault rules', () => {
       false,
     );
   });
+
+  it('allows active unlock users to manage, view, and enter Cash Vault data', () => {
+    const ability = getAbilityForRole(adminRole, 'member', true);
+
+    expect(ability.can(CashVaultAction.Manage, AbilitySubject.CashVault)).toBe(
+      true,
+    );
+    expect(ability.can(CashVaultAction.View, AbilitySubject.CashVault)).toBe(
+      true,
+    );
+    expect(ability.can(CashVaultAction.Entry, AbilitySubject.CashVault)).toBe(
+      true,
+    );
+  });
 });

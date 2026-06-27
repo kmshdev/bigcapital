@@ -178,18 +178,36 @@ export const useSampleSheetImport = () => {
   });
 };
 
-export function useExpenseSheetImportUpload(props?: UseMutationOptions<any, Error, any>) {
+export function useExpenseSheetImportUpload(
+  props?: UseMutationOptions<any, Error, any>,
+) {
   const request = useApiRequest() as any;
   return useMutation({
     ...props,
-    mutationFn: (values) =>
-      request
+    mutationFn: (values) => {
+      if (values?.file) {
+        const formData = new FormData();
+        formData.append('file', values.file);
+        if (values.uploadedByUserId !== undefined) {
+          formData.append('uploadedByUserId', String(values.uploadedByUserId));
+        }
+        if (values.sourceFilename) {
+          formData.append('sourceFilename', values.sourceFilename);
+        }
+        return request
+          .post('/expense-sheet-imports', formData)
+          .then((res: any) => res.data);
+      }
+      return request
         .post('/expense-sheet-imports', values)
-        .then((res: any) => res.data),
+        .then((res: any) => res.data);
+    },
   });
 }
 
-export function useExpenseSheetImportMapping(props?: UseMutationOptions<any, Error, any>) {
+export function useExpenseSheetImportMapping(
+  props?: UseMutationOptions<any, Error, any>,
+) {
   const request = useApiRequest() as any;
   return useMutation({
     ...props,
@@ -200,7 +218,9 @@ export function useExpenseSheetImportMapping(props?: UseMutationOptions<any, Err
   });
 }
 
-export function useExpenseSheetImportPreview(props?: UseMutationOptions<any, Error, any>) {
+export function useExpenseSheetImportPreview(
+  props?: UseMutationOptions<any, Error, any>,
+) {
   const request = useApiRequest() as any;
   return useMutation({
     ...props,
@@ -211,7 +231,9 @@ export function useExpenseSheetImportPreview(props?: UseMutationOptions<any, Err
   });
 }
 
-export function useExpenseSheetImportCommit(props?: UseMutationOptions<any, Error, any>) {
+export function useExpenseSheetImportCommit(
+  props?: UseMutationOptions<any, Error, any>,
+) {
   const request = useApiRequest() as any;
   return useMutation({
     ...props,

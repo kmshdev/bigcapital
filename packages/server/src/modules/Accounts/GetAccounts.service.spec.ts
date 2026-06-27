@@ -1,10 +1,12 @@
 import { GetAccountsService } from './GetAccounts.service';
 
 describe('GetAccountsService Cash Vault visibility', () => {
-  const makeService = (cashVaultAccessResult = {
-    allowed: false,
-    reason: 'cash_vault_view_permission_required',
-  }) => {
+  const makeService = (
+    cashVaultAccessResult: any = {
+      allowed: false,
+      reason: 'cash_vault_view_permission_required',
+    },
+  ) => {
     const builder = {
       modify: jest.fn(),
       where: jest.fn(),
@@ -32,6 +34,13 @@ describe('GetAccountsService Cash Vault visibility', () => {
       }),
     }));
     const cashVaultAccess = {
+      getCurrentUserAccess: jest.fn().mockResolvedValue({
+        tenantId: 1,
+        requestedTenantId: 1,
+        isOwner: false,
+        isGeneralAdmin: false,
+        permissions: [],
+      }),
       canViewCashVault: jest.fn().mockReturnValue(cashVaultAccessResult),
     };
     const service = new (GetAccountsService as any)(
@@ -53,5 +62,13 @@ describe('GetAccountsService Cash Vault visibility', () => {
     });
 
     expect(builder.where).toHaveBeenCalledWith('is_cash_vault', false);
+  });
+
+  it('uses the current user Cash Vault access when no internal context is passed', async () => {
+    const { service, builder } = makeService({ allowed: true });
+
+    await service.getAccountsList({});
+
+    expect(builder.where).not.toHaveBeenCalledWith('is_cash_vault', false);
   });
 });

@@ -48,13 +48,15 @@ export class GetAccountsService {
       this.accountModel(),
       filter,
     );
+    const hideCashVaultAccounts =
+      await this.shouldHideCashVaultAccounts(filterDto);
     // Retrieve accounts model based on the given query.
     const accounts = await this.accountModel()
       .query()
       .onBuild((builder) => {
         dynamicList.buildQuery()(builder);
         builder.modify('inactiveMode', filterDto.onlyInactive);
-        if (this.shouldHideCashVaultAccounts(filterDto)) {
+        if (hideCashVaultAccounts) {
           builder.where('is_cash_vault', false);
         }
       });
@@ -81,8 +83,12 @@ export class GetAccountsService {
     return R.compose(this.dynamicListService.parseStringifiedFilter)(filterDTO);
   }
 
-  private shouldHideCashVaultAccounts(filterDto: Partial<GetAccountsQueryDto>) {
-    const accessContext = (filterDto as any).cashVaultAccess;
+  private async shouldHideCashVaultAccounts(
+    filterDto: Partial<GetAccountsQueryDto>,
+  ) {
+    const accessContext =
+      (filterDto as any).cashVaultAccess ||
+      (await this.cashVaultAccess?.getCurrentUserAccess());
     if (!accessContext || !this.cashVaultAccess) {
       return true;
     }

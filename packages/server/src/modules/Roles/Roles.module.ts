@@ -12,6 +12,7 @@ import { RolesApplication } from './Roles.application';
 import { RolePermissionsSchema } from './queries/RolePermissionsSchema';
 import { AuthorizationGuard } from './Authorization.guard';
 import { PermissionGuard } from './Permission.guard';
+import { CashVaultAccessModule } from '../CashVault/CashVaultAccess.module';
 
 const models = [
   RegisterTenancyModel(Role),
@@ -19,7 +20,7 @@ const models = [
 ];
 
 @Module({
-  imports: [...models],
+  imports: [CashVaultAccessModule, ...models],
   providers: [
     CreateRoleService,
     EditRoleService,
