@@ -1,0 +1,212 @@
+# Schema-Bounded Normal App Design
+
+## Purpose
+
+The normal Bigcapital app surface for the four Bookeepz companies is defined by the approved expense-sheet schema. The app should expose only the business workflows needed to import, review, post, pay, and report vendor expense data. Hidden Cash Vault remains separate and must not become part of the normal visible UI.
+
+The approved schema fields are:
+
+- `Vendor's Name`
+- `Bill No`
+- `Item Description`
+- `Bill Date`
+- `Basic Value`
+- `GST`
+- `Freight Other`
+- `Total Bill Value`
+- `GST on RCM`
+- `TDS Deducted`
+- `LF & Intt`
+- `Date`
+- `Mode of Payment`
+- `Payment`
+- `Balance Payable`
+- `Remarks`
+
+## Product Boundary
+
+The normal visible app is a schema-bounded purchase and expense system. It is not a full generic accounting installation for these users.
+
+Visible to owner admins and accountants:
+
+- Homepage or dashboard focused on vendor bills, payments, expenses, payable balances, and import status.
+- Expense Sheet Import as the primary entry path.
+- Vendors.
+- Bills.
+- Payments Made.
+- Expenses.
+- Tax Rates.
+- Reports limited to payable, vendor, expense, and ledger proof views.
+- Preferences limited to company, user, tax, and required account setup.
+
+Visible to owner admins only:
+
+- Minimal Chart of Accounts setup or filtered account configuration.
+- Report views that expose ledger-level detail.
+- Company/user/preference setup.
+
+Hidden from normal UI:
+
+- Sales, estimates, invoices, receipts, payment received.
+- Customers.
+- Products, services, inventory, warehouses, and inventory adjustments.
+- Banking, Plaid, cashflow feeds, bank rules, and feed-based cashflow account workflows.
+- Manual journals and transaction locking for accountants.
+- Full Chart of Accounts as a routine accountant-facing page.
+- Equity section and broad accounting account-management views.
+- Cash Vault, except through the existing hidden gated paths.
+
+## Existing Tables And Models To Keep
+
+The backend schema must keep the ledger tables and purchase-side tables even when their UI is narrowed.
+
+Required for the normal schema-driven flow:
+
+- `contacts`: vendor records. `Vendor's Name` maps to vendor contact display name with `contact_service = vendor`.
+- `bills`: purchase invoice header. Required columns include `bill_number`, `bill_date`, `due_date`, `reference_no`, `amount`, `payment_amount`, `tax_amount_withheld`, `discount`, `adjustment`, and `note`.
+- `items_entries`: bill line rows. Required columns include `description`, `quantity`, `rate`, `cost_account_id`, `tax_rate_id`, `tax_rate`, and `is_inclusive_tax`.
+- `bills_payments`: vendor payment header. Required columns include `vendor_id`, `amount`, `payment_account_id`, `payment_number`, `payment_date`, `payment_method`, `reference`, and `statement`.
+- `bills_payments_entries`: bill payment allocation rows. Required columns include `bill_id` and `payment_amount`.
+- `expenses_transactions`: direct expense transaction header. Required columns include `payment_account_id`, `payee_id`, `reference_no`, `total_amount`, `payment_date`, and `description`.
+- `expense_transaction_categories`: expense split rows. Required columns include `expense_account_id`, `amount`, and `description`.
+- `tax_rates`: GST rate setup. Required columns include `name`, `code`, `rate`, `is_non_recoverable`, `is_compound`, and `active`.
+- `tax_rate_transactions`: posted tax references. Required columns include `tax_rate_id`, `reference_type`, `reference_id`, `rate`, and `tax_account_id`.
+- `accounts`: account definitions needed by purchase, payment, expense, tax, and ledger posting.
+- `accounts_transactions`: generated ledger proof for bills, payments, expenses, and taxes.
+
+## Account Type Policy
+
+Backend account types that should remain available for posting and reports:
+
+- `bank`
+- `cash`
+- `accounts-payable`
+- `tax-payable`
+- `expense`
+- `other-expense`
+- `other-current-asset`
+
+Backend-only account types that may remain for framework assumptions, reports, and existing Bigcapital flows, but should not be exposed as normal user workflows:
+
+- `accounts-receivable`
+- `income`
+- `other-income`
+- `equity`
+
+Unsupported normal-app account and feature surfaces should be hidden from navigation and routine creation flows rather than deleted from the database schema. Ledger correctness and Bigcapital internals depend on accounts and account transactions continuing to exist.
+
+## UI Field Mapping
+
+The normal UI should use the workbook language wherever practical.
+
+| Workbook field | UI surface | Backend mapping |
+| --- | --- | --- |
+| `Vendor's Name` | Vendors, import preview, bill/payment tables | `contacts.display_name` |
+| `Bill No` | Bills, import preview, payment allocation | `bills.bill_number` |
+| `Item Description` | Bill line table and import preview | `items_entries.description` |
+| `Bill Date` | Bills | `bills.bill_date` |
+| `Basic Value` | Bill line amount before tax | `items_entries.quantity` and `items_entries.rate` |
+| `GST` | Tax Rates and bill line tax | `tax_rates`, `items_entries.tax_rate_id`, `tax_rate_transactions` |
+| `Freight Other` | Bill adjustment or expense/other-expense line | `bills.adjustment` or expense category |
+| `Total Bill Value` | Bill total | `bills.amount` |
+| `GST on RCM` | Import preview and configured tax/expense posting | configured RCM GST account behavior |
+| `TDS Deducted` | Import preview and configured expense/payable posting | configured TDS account behavior |
+| `LF & Intt` | Expense category | configured late fee/interest expense account |
+| `Date` | Payment or expense date | `bills_payments.payment_date` or `expenses_transactions.payment_date` |
+| `Mode of Payment` | Payment Made | `bills_payments.payment_method` |
+| `Payment` | Payment Made and bill allocation | `bills_payments.amount`, `bills_payments_entries.payment_amount` |
+| `Balance Payable` | Derived display | `bills.amount - bills.payment_amount - credited_amount` |
+| `Remarks` | Notes and descriptions | `bills.note`, `bills_payments.statement`, or expense description |
+
+`Balance Payable` is always derived by the app. The importer can display the spreadsheet value for comparison, but it must not trust it as the source of ledger truth.
+
+## Quick New
+
+The Quick New menu should stop acting as a generic creation menu for unsupported business objects.
+
+Required normal-app behavior:
+
+- Show `Import Expense Sheet` as the primary Quick New action.
+- Clicking it opens a file picker or import dialog for the approved spreadsheet schema.
+- The action routes into the same `/expenses/sheet-import` workflow and backend import APIs as the full import page.
+- Recognized columns are auto-mapped.
+- Unsupported columns are shown before posting.
+- Parsed rows are previewed, validated, and then posted into the purchase/expense/payment model.
+
+Quick New is a shortcut into the canonical import flow, not a separate importer.
+
+## Posting Model
+
+For each spreadsheet row, the import flow creates a posting plan before mutating data:
+
+1. Resolve or stage the vendor from `Vendor's Name`.
+2. Resolve an existing bill by `vendorName + billNo`, or create a new bill.
+3. Populate bill header values from `Bill No`, `Bill Date`, `Total Bill Value`, and `Remarks`.
+4. Populate bill line values from `Item Description`, `Basic Value`, `GST`, and `Freight Other`.
+5. Resolve GST through `tax_rates` and bill item tax fields.
+6. Represent `GST on RCM`, `TDS Deducted`, and `LF & Intt` through configured expense/tax/payable accounts.
+7. If `Date`, `Mode of Payment`, and `Payment` are present, create or update Payment Made and allocate it to the bill.
+8. Recalculate `Balance Payable` from posted bill and payment data.
+
+The preview must show what will be created or updated before posting.
+
+## Permissions
+
+Owner admins and accountants share the same normal operational surface, but admin-only setup remains separate.
+
+Owner admins:
+
+- Can use all normal schema-driven workflows.
+- Can manage minimal setup surfaces such as Tax Rates, configured posting accounts, company preferences, users, and selected ledger reports.
+- Can access hidden Cash Vault through the separate gated owner path.
+
+Accountants:
+
+- Can use normal schema-driven workflows.
+- Can import, preview, and post approved expense-sheet rows if granted normal operational permission.
+- Cannot access hidden Cash Vault management or history.
+- Cannot access full Chart of Accounts management, manual journals, broad account settings, or unsupported sales/inventory/banking features.
+
+## Validation And Error Handling
+
+The import flow must validate rows before posting:
+
+- Unknown headers are rejected or displayed as unsupported before posting.
+- Missing `Vendor's Name`, `Bill No`, `Bill Date`, or amount fields blocks posting for that row.
+- Duplicate detection uses `vendorName + billNo`.
+- GST must map to an existing or created tax rate before posting.
+- `GST on RCM`, `TDS Deducted`, and `LF & Intt` require configured posting accounts before posting.
+- Payment posting requires payment date, payment amount, and payment account resolution.
+- Balance mismatches are displayed as warnings; app-calculated balance remains authoritative.
+
+Partial imports should be staged at the row level: valid rows may be posted only after the user confirms the preview and invalid rows remain clearly identified.
+
+## Testing Requirements
+
+Server tests:
+
+- Header mapping accepts approved spreadsheet headers and rejects unsupported headers.
+- Row-to-posting-plan conversion maps each workbook field to the correct target.
+- Duplicate bill detection uses `vendorName + billNo`.
+- Posting account validation blocks TDS, RCM, and late fee rows when configured accounts are missing.
+- Balance payable is recalculated and not trusted from input.
+
+Webapp tests:
+
+- Sidebar hides unsupported normal-app sections.
+- Homepage hides unsupported cards and exposes only schema-bound workflow cards.
+- Quick New shows `Import Expense Sheet` and routes into `/expenses/sheet-import`.
+- Owner admin and accountant UI surfaces differ only where setup/Cash Vault permissions require it.
+
+Browser validation:
+
+- Owner admin sees Dashboard, Expense Sheet Import, Vendors, Bills, Payments Made, Expenses, Tax Rates, selected Reports, and limited Preferences.
+- Accountant sees the operational schema-bound app and does not see Cash Vault management, full account management, sales, inventory, banking, customers, or manual journals.
+- Quick New import path opens the approved spreadsheet import flow and previews mapped rows.
+
+## Out Of Scope
+
+- Deleting backend ledger tables or account types.
+- Replacing the purchase, payment, expense, tax, and ledger services with a separate accounting engine.
+- Making Cash Vault visible in normal navigation.
+- Implementing unsupported sales, inventory, banking, or customer workflows for these companies.
