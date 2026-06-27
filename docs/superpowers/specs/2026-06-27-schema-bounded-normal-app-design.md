@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The normal Bigcapital app surface for the four Bookeepz companies is defined by the approved expense-sheet schema. The app should expose only the business workflows needed to import, review, post, pay, and report vendor expense data. Hidden Cash Vault remains separate and must not become part of the normal visible UI.
+The normal Bigcapital app surface for the four Bookeepz companies is defined by the approved expense-sheet schema. The app should expose only the business workflows needed to manually enter, import, review, post, pay, and report vendor expense data. Hidden Cash Vault remains separate and must not become part of the normal visible UI.
 
 The approved schema fields are:
 
@@ -31,6 +31,7 @@ Visible to owner admins and accountants:
 
 - Homepage or dashboard focused on vendor bills, payments, expenses, payable balances, and import status.
 - Expense Sheet Import as the primary entry path.
+- Manual entry through Vendors, Bills, Payments Made, Expenses, and Tax Rates remains available.
 - Vendors.
 - Bills.
 - Payments Made.
@@ -97,7 +98,7 @@ Unsupported normal-app account and feature surfaces should be hidden from naviga
 
 ## UI Field Mapping
 
-The normal UI should use the workbook language wherever practical.
+The normal UI should use the workbook language wherever practical. These labels apply to both spreadsheet import and manual entry. The spreadsheet is an allowed bulk-input path, not the only way to use the app.
 
 | Workbook field | UI surface | Backend mapping |
 | --- | --- | --- |
@@ -127,6 +128,7 @@ The Quick New menu should stop acting as a generic creation menu for unsupported
 Required normal-app behavior:
 
 - Show `Import Expense Sheet` as the primary Quick New action.
+- Keep manual creation shortcuts for supported schema-bound records: Vendor, Bill, Payment Made, Expense, and Tax Rate.
 - Clicking it opens a file picker or import dialog for the approved spreadsheet schema.
 - The action routes into the same `/expenses/sheet-import` workflow and backend import APIs as the full import page.
 - Recognized columns are auto-mapped.
@@ -134,6 +136,20 @@ Required normal-app behavior:
 - Parsed rows are previewed, validated, and then posted into the purchase/expense/payment model.
 
 Quick New is a shortcut into the canonical import flow, not a separate importer.
+
+Manual Quick New actions should route to the existing supported forms with schema-bounded labels and fields. Unsupported actions such as customer, invoice, receipt, inventory, sales, banking/Plaid, and manual journal creation should not appear in Quick New.
+
+## Manual Entry Model
+
+Manual entry remains a first-class workflow for the normal app.
+
+- Vendors can be created and edited directly.
+- Bills can be created and edited directly using the schema-bounded bill fields.
+- Payments Made can be created and edited directly and allocated to bills.
+- Expenses can be created and edited directly using supported expense categories.
+- Tax Rates can be created and edited directly for GST handling.
+- Manual forms should use the same validation and posting rules as imported rows where the fields overlap.
+- Manual entry screens should not expose unsupported sales, inventory, banking, customer, or hidden Cash Vault controls.
 
 ## Posting Model
 
@@ -212,6 +228,8 @@ Browser validation:
 - Owner admin sees Dashboard, Expense Sheet Import, Vendors, Bills, Payments Made, Expenses, Tax Rates, selected Reports, and limited Preferences.
 - Accountant sees the operational schema-bound app and does not see Cash Vault management, full account management, sales, inventory, banking, customers, or manual journals.
 - Quick New import path opens the approved spreadsheet import flow and previews mapped rows.
+- Quick New manual actions open supported manual entry forms for Vendor, Bill, Payment Made, Expense, and Tax Rate.
+- Existing manual entry flows remain usable for supported schema-bound records.
 
 ## Out Of Scope
 
