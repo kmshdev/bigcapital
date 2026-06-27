@@ -139,14 +139,18 @@ Quick New is a shortcut into the canonical import flow, not a separate importer.
 
 For each spreadsheet row, the import flow creates a posting plan before mutating data:
 
-1. Resolve or stage the vendor from `Vendor's Name`.
-2. Resolve an existing bill by `vendorName + billNo`, or create a new bill.
-3. Populate bill header values from `Bill No`, `Bill Date`, `Total Bill Value`, and `Remarks`.
-4. Populate bill line values from `Item Description`, `Basic Value`, `GST`, and `Freight Other`.
-5. Resolve GST through `tax_rates` and bill item tax fields.
-6. Represent `GST on RCM`, `TDS Deducted`, and `LF & Intt` through configured expense/tax/payable accounts.
-7. If `Date`, `Mode of Payment`, and `Payment` are present, create or update Payment Made and allocate it to the bill.
-8. Recalculate `Balance Payable` from posted bill and payment data.
+All approved workbook fields are nullable. Empty cells do not fail the whole row. The importer should populate only the sections that have enough data, and it should skip rows that have no transaction value of any kind.
+
+1. Classify the row by available values before validation.
+2. Skip the row when it has no usable vendor, bill, expense, tax, payment, note, or amount signal.
+3. Resolve or stage the vendor from `Vendor's Name` when vendor data is present.
+4. Resolve an existing bill by `vendorName + billNo` when both values exist, or create a bill when the row has enough bill data.
+5. Populate bill header values from available `Bill No`, `Bill Date`, `Total Bill Value`, and `Remarks` values.
+6. Populate bill line values from available `Item Description`, `Basic Value`, `GST`, and `Freight Other` values.
+7. Resolve GST through `tax_rates` and bill item tax fields when GST data is present.
+8. Represent `GST on RCM`, `TDS Deducted`, and `LF & Intt` through configured expense/tax/payable accounts when those values are present.
+9. If payment data is present, create or update Payment Made with available `Date`, `Mode of Payment`, and `Payment` values and allocate it to a bill when a matching bill can be resolved.
+10. Recalculate `Balance Payable` from posted bill and payment data whenever a bill exists.
 
 The preview must show what will be created or updated before posting.
 
@@ -172,11 +176,13 @@ Accountants:
 The import flow must validate rows before posting:
 
 - Unknown headers are rejected or displayed as unsupported before posting.
-- Missing `Vendor's Name`, `Bill No`, `Bill Date`, or amount fields blocks posting for that row.
-- Duplicate detection uses `vendorName + billNo`.
-- GST must map to an existing or created tax rate before posting.
-- `GST on RCM`, `TDS Deducted`, and `LF & Intt` require configured posting accounts before posting.
-- Payment posting requires payment date, payment amount, and payment account resolution.
+- Empty approved fields are allowed and should not block unrelated sections from posting.
+- Rows with no usable transaction value are skipped and reported as skipped, not failed.
+- Missing `Vendor's Name`, `Bill No`, `Bill Date`, or amount fields blocks only the section that requires that value.
+- Duplicate bill detection uses `vendorName + billNo` only when both values exist.
+- GST must map to an existing or created tax rate before posting GST-related amounts.
+- `GST on RCM`, `TDS Deducted`, and `LF & Intt` require configured posting accounts only when those values are present.
+- Payment posting requires payment amount and payment account resolution; payment date and mode should be populated when available.
 - Balance mismatches are displayed as warnings; app-calculated balance remains authoritative.
 
 Partial imports should be staged at the row level: valid rows may be posted only after the user confirms the preview and invalid rows remain clearly identified.
@@ -186,7 +192,10 @@ Partial imports should be staged at the row level: valid rows may be posted only
 Server tests:
 
 - Header mapping accepts approved spreadsheet headers and rejects unsupported headers.
+- Empty cells in approved columns do not fail parsing.
+- Rows with no transaction value are skipped and reported.
 - Row-to-posting-plan conversion maps each workbook field to the correct target.
+- Row-to-posting-plan conversion creates partial vendor, bill, expense, tax, or payment actions only for sections with sufficient data.
 - Duplicate bill detection uses `vendorName + billNo`.
 - Posting account validation blocks TDS, RCM, and late fee rows when configured accounts are missing.
 - Balance payable is recalculated and not trusted from input.
