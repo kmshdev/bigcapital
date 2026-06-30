@@ -12,6 +12,8 @@ import {
   CashVaultChallengePurpose,
   CashVaultChallengeService,
 } from './queries-and-commands/CashVaultChallenge.service';
+import { CreateCashVaultExpenseDto } from './dtos/CashVaultExpense.dto';
+import { CashVaultExpenseService } from './queries-and-commands/CashVaultExpense.service';
 
 @Injectable()
 export class CashVaultApplicationService {
@@ -20,6 +22,7 @@ export class CashVaultApplicationService {
     private readonly createCashVaultEntryService: CreateCashVaultEntryService,
     private readonly manageCashVaultUnlock: ManageCashVaultUnlockService,
     private readonly cashVaultChallenge: CashVaultChallengeService,
+    private readonly cashVaultExpense: CashVaultExpenseService,
   ) {}
 
   public getCashVaultAccounts() {
@@ -38,15 +41,27 @@ export class CashVaultApplicationService {
     return this.createCashVaultEntryService.createEntry(body);
   }
 
+  public getCashVaultExpenses() {
+    return this.cashVaultExpense.listExpenses();
+  }
+
+  public createCashVaultExpense(body: CreateCashVaultExpenseDto) {
+    return this.cashVaultExpense.createExpense(body);
+  }
+
   public getDesignatedAdmins() {
     return this.manageCashVaultUnlock.listDesignatedAdmins();
   }
 
-  public replaceDesignatedAdmins(body: ReplaceCashVaultDesignatedAdminsDto) {
+  public replaceDesignatedAdmins(
+    body: ReplaceCashVaultDesignatedAdminsDto & { designatedByUserId: number },
+  ) {
     return this.manageCashVaultUnlock.replaceDesignatedAdmins(body);
   }
 
-  public grantUnlock(body: GrantCashVaultUnlockDto) {
+  public grantUnlock(
+    body: GrantCashVaultUnlockDto & { grantedByUserId: number },
+  ) {
     return this.manageCashVaultUnlock.grantUnlock(body);
   }
 

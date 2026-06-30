@@ -22,22 +22,36 @@ describe('getAbilityForRole Cash Vault rules', () => {
     );
   });
 
-  it('allows owner memberships to manage, view, and enter Cash Vault data', () => {
+  it('does not let owner memberships bypass the Cash Vault challenge', () => {
     const ability = getAbilityForRole(adminRole, 'owner');
 
     expect(ability.can(CashVaultAction.Manage, AbilitySubject.CashVault)).toBe(
-      true,
+      false,
     );
     expect(ability.can(CashVaultAction.View, AbilitySubject.CashVault)).toBe(
-      true,
+      false,
     );
     expect(ability.can(CashVaultAction.Entry, AbilitySubject.CashVault)).toBe(
-      true,
+      false,
     );
   });
 
-  it('allows accountant memberships to create Cash Vault entries only', () => {
+  it('does not let accountant memberships bypass the Cash Vault challenge', () => {
     const ability = getAbilityForRole(adminRole, 'member');
+
+    expect(ability.can(CashVaultAction.Entry, AbilitySubject.CashVault)).toBe(
+      false,
+    );
+    expect(ability.can(CashVaultAction.Manage, AbilitySubject.CashVault)).toBe(
+      false,
+    );
+    expect(ability.can(CashVaultAction.View, AbilitySubject.CashVault)).toBe(
+      false,
+    );
+  });
+
+  it('allows entry unlock users to create Cash Vault entries only', () => {
+    const ability = getAbilityForRole(adminRole, 'member', 'entry');
 
     expect(ability.can(CashVaultAction.Entry, AbilitySubject.CashVault)).toBe(
       true,
@@ -50,8 +64,8 @@ describe('getAbilityForRole Cash Vault rules', () => {
     );
   });
 
-  it('allows active unlock users to manage, view, and enter Cash Vault data', () => {
-    const ability = getAbilityForRole(adminRole, 'member', true);
+  it('allows manage unlock users to manage, view, and enter Cash Vault data', () => {
+    const ability = getAbilityForRole(adminRole, 'member', 'manage');
 
     expect(ability.can(CashVaultAction.Manage, AbilitySubject.CashVault)).toBe(
       true,

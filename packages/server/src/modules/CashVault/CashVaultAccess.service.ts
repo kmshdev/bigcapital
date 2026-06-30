@@ -15,6 +15,7 @@ type CashVaultUnlockAccess = {
   expiresAt: Date | string;
   revokedAt?: Date | string | null;
   isDesignatedAdmin: boolean;
+  purpose: 'entry' | 'manage';
 };
 
 type CashVaultUserAccess = {
@@ -72,6 +73,7 @@ export class CashVaultAccessService {
     const membership = await this.userTenantModel
       .query()
       .findOne({ userId, tenantId: tenant.id });
+    const requestedScope = this.cls?.get('cashVaultScope');
     const activeUnlock = await this.getActiveUnlock(userId, tenant.id, now);
 
     return {
@@ -80,7 +82,9 @@ export class CashVaultAccessService {
       isOwner: membership?.role === 'owner',
       isGeneralAdmin: false,
       permissions: this.permissionsForMembership(membership?.role),
-      activeUnlock,
+      activeUnlock: this.isUnlockInRequestedScope(activeUnlock, requestedScope)
+        ? activeUnlock
+        : undefined,
     };
   }
 
@@ -91,10 +95,7 @@ export class CashVaultAccessService {
     if (!this.isSelectedTenant(access)) {
       return this.deny('cash_vault_manage_permission_required');
     }
-    if (access.isOwner || access.permissions.includes('CashVault.Manage')) {
-      return { allowed: true };
-    }
-    if (this.hasActiveUnlock(access, now)) {
+    if (this.hasActiveUnlock(access, now, 'manage', true)) {
       return { allowed: true };
     }
     return this.deny('cash_vault_manage_permission_required');
@@ -107,10 +108,7 @@ export class CashVaultAccessService {
     if (!this.isSelectedTenant(access)) {
       return this.deny('cash_vault_entry_permission_required');
     }
-    if (
-      access.permissions.includes('CashVault.Entry') ||
-      this.hasActiveUnlock(access, now)
-    ) {
+    if (this.hasActiveUnlock(access, now, 'entry')) {
       return { allowed: true };
     }
     return this.deny('cash_vault_entry_permission_required');
@@ -123,10 +121,7 @@ export class CashVaultAccessService {
     if (!this.isSelectedTenant(access)) {
       return this.deny('cash_vault_view_permission_required');
     }
-    if (
-      access.permissions.includes('CashVault.View') ||
-      this.hasActiveUnlock(access, now)
-    ) {
+    if (this.hasActiveUnlock(access, now, 'manage', true)) {
       return { allowed: true };
     }
     return this.deny('cash_vault_view_permission_required');
@@ -136,12 +131,23 @@ export class CashVaultAccessService {
     return access.tenantId === access.requestedTenantId;
   }
 
-  private hasActiveUnlock(access: CashVaultUserAccess, now: Date) {
+  private hasActiveUnlock(
+    access: CashVaultUserAccess,
+    now: Date,
+    purpose: 'entry' | 'manage',
+    requireDesignatedAdmin = false,
+  ) {
     const unlock = access.activeUnlock;
     if (!unlock) {
       return false;
     }
-    if (!unlock.isDesignatedAdmin) {
+    if (requireDesignatedAdmin && !unlock.isDesignatedAdmin) {
+      return false;
+    }
+    const purposeAllowed =
+      unlock.purpose === purpose ||
+      (purpose === 'entry' && unlock.purpose === 'manage');
+    if (!purposeAllowed) {
       return false;
     }
     if (unlock.tenantId !== access.requestedTenantId) {
@@ -170,9 +176,8 @@ export class CashVaultAccessService {
   private permissionsForMembership(role?: UserTenantRole) {
     switch (role) {
       case 'owner':
-        return ['CashVault.Manage', 'CashVault.View', 'CashVault.Entry'];
       case 'member':
-        return ['CashVault.Entry'];
+        return [];
       default:
         return [];
     }
@@ -206,6 +211,20 @@ export class CashVaultAccessService {
       expiresAt: unlock.expiresAt,
       revokedAt: unlock.revokedAt,
       isDesignatedAdmin: Boolean(designatedAdmin),
+      purpose: unlock.purpose,
     };
+  }
+
+  private isUnlockInRequestedScope(
+    unlock: CashVaultUnlockAccess | undefined,
+    requestedScope?: 'entry' | 'manage',
+  ) {
+    if (!unlock || !requestedScope) {
+      return false;
+    }
+    if (unlock.purpose === 'manage') {
+      return requestedScope === 'manage' || requestedScope === 'entry';
+    }
+    return requestedScope === 'entry';
   }
 }

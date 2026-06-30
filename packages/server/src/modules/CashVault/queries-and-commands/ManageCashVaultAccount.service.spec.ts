@@ -1,6 +1,32 @@
 import { ManageCashVaultAccountService } from './ManageCashVaultAccount.service';
 
 describe('ManageCashVaultAccountService', () => {
+  it('returns opaque ledger names for Cash Vault accounts', async () => {
+    const accountRepository = {
+      listCashVaultAccounts: jest.fn().mockResolvedValue([
+        {
+          id: 31,
+          name: 'Hidden Cash Vault',
+          isCashVault: true,
+          cashVaultEntryEnabled: true,
+        },
+      ]),
+    };
+    const service = new ManageCashVaultAccountService(
+      accountRepository as any,
+      {} as any,
+    );
+
+    await expect(service.listAccounts()).resolves.toEqual([
+      {
+        id: 31,
+        name: expect.stringMatching(/^TEST_LEDGER_\d{6}$/),
+        isCashVault: true,
+        cashVaultEntryEnabled: true,
+      },
+    ]);
+  });
+
   it('rejects non-cash accounts when designating a Cash Vault account', async () => {
     const accountRepository = {
       findById: jest.fn().mockResolvedValue({

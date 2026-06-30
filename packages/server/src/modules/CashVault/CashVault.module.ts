@@ -11,6 +11,8 @@ import { ManageCashVaultUnlockService } from './queries-and-commands/ManageCashV
 import { CashVaultPasswordVerifierService } from './queries-and-commands/CashVaultPasswordVerifier.service';
 import { CashVaultChallengeService } from './queries-and-commands/CashVaultChallenge.service';
 import { CashVaultAccessModule } from './CashVaultAccess.module';
+import { ExpensesModule } from '../Expenses/Expenses.module';
+import { CashVaultExpenseService } from './queries-and-commands/CashVaultExpense.service';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { CashVaultAccessModule } from './CashVaultAccess.module';
     AuditLogsModule,
     AccountsModule,
     BankingTransactionsModule,
+    ExpensesModule,
   ],
   providers: [
     CashVaultApplicationService,
@@ -27,6 +30,7 @@ import { CashVaultAccessModule } from './CashVaultAccess.module';
     ManageCashVaultUnlockService,
     CashVaultPasswordVerifierService,
     CashVaultChallengeService,
+    CashVaultExpenseService,
   ],
   controllers: [CashVaultController],
   exports: [CashVaultAccessModule, CashVaultAuditService],

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountRepository } from '@/modules/Accounts/repositories/Account.repository';
 import { CashVaultAuditService } from '../CashVaultAudit.service';
+import { getCashVaultLedgerName } from '../CashVaultLedgerName';
 
 type DesignateCashVaultAccountParams = {
   accountId: number;
@@ -16,7 +17,11 @@ export class ManageCashVaultAccountService {
   ) {}
 
   public async listAccounts() {
-    return this.accountRepository.listCashVaultAccounts();
+    const accounts = await this.accountRepository.listCashVaultAccounts();
+    return accounts.map((account) => ({
+      ...account,
+      name: getCashVaultLedgerName(account.id),
+    }));
   }
 
   public async designateAccount(params: DesignateCashVaultAccountParams) {

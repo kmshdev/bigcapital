@@ -12,6 +12,8 @@ export type CashVaultChallengeRequest = {
 
 @Injectable()
 export class CashVaultChallengeService {
+  private readonly unlockDurationMs = 15 * 60 * 1000;
+
   constructor(
     private readonly passwordVerifier: CashVaultPasswordVerifierService,
     private readonly designatedAdmins: ManageCashVaultUnlockService,
@@ -29,6 +31,13 @@ export class CashVaultChallengeService {
     }
 
     if (purpose === 'entry') {
+      await this.unlocks.grantUnlock({
+        userId,
+        grantedByUserId: userId,
+        expiresAt: this.getChallengeExpiry(),
+        purpose,
+        requireDesignatedAdmin: false,
+      });
       return { purpose, granted: true };
     }
 
@@ -38,6 +47,17 @@ export class CashVaultChallengeService {
       throw new Error('cash_vault_unlock_user_not_designated');
     }
 
+    await this.unlocks.grantUnlock({
+      userId,
+      grantedByUserId: userId,
+      expiresAt: this.getChallengeExpiry(),
+      purpose,
+      requireDesignatedAdmin: true,
+    });
     return { purpose, granted: true };
+  }
+
+  private getChallengeExpiry() {
+    return new Date(Date.now() + this.unlockDurationMs).toISOString();
   }
 }

@@ -13,10 +13,16 @@ describe('CashVaultChallengeService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-27T10:00:00.000Z'));
   });
 
-  it('allows accountant entry challenge after password verification only', async () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('creates an entry unlock after accountant password verification', async () => {
     passwordVerifier.verify.mockResolvedValue(true);
+    unlocks.grantUnlock.mockResolvedValue({ id: 99 });
     const service = new CashVaultChallengeService(
       passwordVerifier as any,
       designatedAdmins as any,
@@ -31,7 +37,13 @@ describe('CashVaultChallengeService', () => {
       }),
     ).resolves.toEqual({ purpose: 'entry', granted: true });
     expect(designatedAdmins.isDesignatedAdmin).not.toHaveBeenCalled();
-    expect(unlocks.grantUnlock).not.toHaveBeenCalled();
+    expect(unlocks.grantUnlock).toHaveBeenCalledWith({
+      userId: 31,
+      grantedByUserId: 31,
+      expiresAt: '2026-06-27T10:15:00.000Z',
+      purpose: 'entry',
+      requireDesignatedAdmin: false,
+    });
   });
 
   it('rejects challenge when cash-vault password is invalid', async () => {
@@ -51,9 +63,10 @@ describe('CashVaultChallengeService', () => {
     ).rejects.toThrow('cash_vault_challenge_invalid');
   });
 
-  it('verifies a designated admin management challenge without creating an unlock', async () => {
+  it('creates a manage unlock for a designated admin management challenge', async () => {
     passwordVerifier.verify.mockResolvedValue(true);
     designatedAdmins.isDesignatedAdmin.mockResolvedValue(true);
+    unlocks.grantUnlock.mockResolvedValue({ id: 100 });
     const service = new CashVaultChallengeService(
       passwordVerifier as any,
       designatedAdmins as any,
@@ -67,7 +80,13 @@ describe('CashVaultChallengeService', () => {
         purpose: 'manage',
       }),
     ).resolves.toEqual({ purpose: 'manage', granted: true });
-    expect(unlocks.grantUnlock).not.toHaveBeenCalled();
+    expect(unlocks.grantUnlock).toHaveBeenCalledWith({
+      userId: 44,
+      grantedByUserId: 44,
+      expiresAt: '2026-06-27T10:15:00.000Z',
+      purpose: 'manage',
+      requireDesignatedAdmin: true,
+    });
   });
 
   it('rejects management challenge for non-designated users', async () => {

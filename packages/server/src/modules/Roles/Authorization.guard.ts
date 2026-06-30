@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
@@ -31,6 +32,7 @@ export class AuthorizationGuard implements CanActivate {
     @Inject(TenantModel.name)
     private readonly tenantModel: typeof TenantModel,
 
+    @Optional()
     private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
@@ -45,18 +47,23 @@ export class AuthorizationGuard implements CanActivate {
     const userId = this.clsService.get('userId');
     const organizationId = this.clsService.get('organizationId');
     const cacheKey = `${userId}:${organizationId || 'tenant-agnostic'}`;
+    const cashVaultScope = this.getCashVaultScope(request);
+
+    if (cashVaultScope) {
+      this.clsService.set('cashVaultScope', cashVaultScope);
+    }
 
     if (!this.cashVaultAccess && ABILITIES_CACHE.has(cacheKey)) {
       (request as any).ability = ABILITIES_CACHE.get(cacheKey);
     } else {
-      const ability = await this.getAbilityForUser();
+      const ability = await this.getAbilityForUser(cashVaultScope);
       (request as any).ability = ability;
       ABILITIES_CACHE.set(cacheKey, ability);
     }
     return true;
   }
 
-  async getAbilityForUser() {
+  async getAbilityForUser(cashVaultScope?: 'entry' | 'manage') {
     const userId = this.clsService.get('userId');
     const organizationId = this.clsService.get('organizationId');
     const tenantUser = await this.tenantUserModel()
@@ -69,7 +76,10 @@ export class AuthorizationGuard implements CanActivate {
     return getAbilityForRole(
       tenantUser.role,
       membershipRole,
-      Boolean(cashVaultAccess?.activeUnlock),
+      this.getScopedUnlockPurpose(
+        cashVaultAccess?.activeUnlock?.purpose,
+        cashVaultScope,
+      ),
     );
   }
 
@@ -86,5 +96,28 @@ export class AuthorizationGuard implements CanActivate {
       .findOne({ userId, tenantId: tenant.id });
 
     return membership?.role;
+  }
+
+  private getCashVaultScope(request: Request): 'entry' | 'manage' | undefined {
+    const header = request.headers['x-cash-vault-scope'];
+    const value = Array.isArray(header) ? header[0] : header;
+
+    return value === 'entry' || value === 'manage' ? value : undefined;
+  }
+
+  private getScopedUnlockPurpose(
+    activePurpose?: 'entry' | 'manage',
+    requestedScope?: 'entry' | 'manage',
+  ): 'entry' | 'manage' | undefined {
+    if (!activePurpose || !requestedScope) {
+      return undefined;
+    }
+    if (activePurpose === 'manage' && requestedScope === 'manage') {
+      return 'manage';
+    }
+    if (requestedScope === 'entry') {
+      return 'entry';
+    }
+    return undefined;
   }
 }

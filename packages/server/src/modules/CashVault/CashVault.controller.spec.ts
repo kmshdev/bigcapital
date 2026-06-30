@@ -97,13 +97,17 @@ describe('CashVaultController', () => {
     const app = {
       replaceDesignatedAdmins: jest.fn().mockResolvedValue([{ userId: 1 }]),
     };
-    const controller = new CashVaultController(app as any);
-    const body = { userIds: [1], designatedByUserId: 9 };
+    const cls = { get: jest.fn().mockReturnValue(9) };
+    const controller = new CashVaultController(app as any, cls as any);
+    const body = { userIds: [1], designatedByUserId: 999 };
 
     await expect(
       (controller as any).replaceDesignatedAdmins(body),
     ).resolves.toEqual([{ userId: 1 }]);
-    expect(app.replaceDesignatedAdmins).toHaveBeenCalledWith(body);
+    expect(app.replaceDesignatedAdmins).toHaveBeenCalledWith({
+      userIds: [1],
+      designatedByUserId: 9,
+    });
   });
 
   it('grants and revokes temporary unlocks through the application service', async () => {
@@ -111,10 +115,12 @@ describe('CashVaultController', () => {
       grantUnlock: jest.fn().mockResolvedValue({ id: 7 }),
       revokeUnlock: jest.fn().mockResolvedValue({ id: 7, revokedByUserId: 9 }),
     };
-    const controller = new CashVaultController(app as any);
+    const cls = { get: jest.fn().mockReturnValue(9) };
+    const controller = new CashVaultController(app as any, cls as any);
     const body = {
       userId: 4,
-      grantedByUserId: 9,
+      grantedByUserId: 999,
+      purpose: 'manage',
       expiresAt: '2026-06-27T12:00:00.000Z',
     };
 
@@ -125,7 +131,12 @@ describe('CashVaultController', () => {
       id: 7,
       revokedByUserId: 9,
     });
-    expect(app.grantUnlock).toHaveBeenCalledWith(body);
+    expect(app.grantUnlock).toHaveBeenCalledWith({
+      userId: 4,
+      grantedByUserId: 9,
+      purpose: 'manage',
+      expiresAt: '2026-06-27T12:00:00.000Z',
+    });
     expect(app.revokeUnlock).toHaveBeenCalledWith(7, 9);
   });
 });

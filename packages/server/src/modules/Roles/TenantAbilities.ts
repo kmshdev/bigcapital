@@ -16,11 +16,17 @@ export const ABILITIES_CACHE = new LruCache(1000);
 export function getAbilityForRole(
   role,
   membershipRole?: UserTenantRole,
-  hasActiveCashVaultUnlock = false,
+  activeCashVaultUnlockPurpose?: 'entry' | 'manage',
 ) {
   const rules = getAbilitiesRolesConds(role);
   rules.push(...getCashVaultMembershipRules(membershipRole));
-  if (hasActiveCashVaultUnlock) {
+  if (activeCashVaultUnlockPurpose === 'entry') {
+    rules.push({
+      action: CashVaultAction.Entry,
+      subject: AbilitySubject.CashVault,
+    });
+  }
+  if (activeCashVaultUnlockPurpose === 'manage') {
     rules.push(...getCashVaultFullAccessRules());
   }
   return new Ability(rules);
@@ -54,15 +60,8 @@ function getSuperAdminRules() {
 function getCashVaultMembershipRules(membershipRole?: UserTenantRole) {
   switch (membershipRole) {
     case 'owner':
-      return [
-        { action: CashVaultAction.Manage, subject: AbilitySubject.CashVault },
-        { action: CashVaultAction.View, subject: AbilitySubject.CashVault },
-        { action: CashVaultAction.Entry, subject: AbilitySubject.CashVault },
-      ];
     case 'member':
-      return [
-        { action: CashVaultAction.Entry, subject: AbilitySubject.CashVault },
-      ];
+      return [];
     default:
       return [];
   }

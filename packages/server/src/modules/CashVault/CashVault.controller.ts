@@ -12,10 +12,10 @@ import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CashVaultApplicationService } from './CashVaultApplication.service';
 import { DesignateCashVaultAccountDto } from './dtos/CashVaultAccount.dto';
 import { CreateCashVaultEntryDto } from './dtos/CashVaultEntry.dto';
+import { CreateCashVaultExpenseDto } from './dtos/CashVaultExpense.dto';
 import {
   GrantCashVaultUnlockDto,
   ReplaceCashVaultDesignatedAdminsDto,
-  RevokeCashVaultUnlockDto,
 } from './dtos/CashVaultUnlock.dto';
 import { RequirePermission } from '@/modules/Roles/RequirePermission.decorator';
 import { PermissionGuard } from '@/modules/Roles/Permission.guard';
@@ -76,6 +76,21 @@ export class CashVaultController {
     return this.cashVaultApplication.createCashVaultEntry(body);
   }
 
+  @Get('/expenses')
+  @RequirePermission(CashVaultAction.View, AbilitySubject.CashVault)
+  @ApiOperation({ summary: 'List expenses paid from the Cash Vault account.' })
+  public getCashVaultExpenses() {
+    return this.cashVaultApplication.getCashVaultExpenses();
+  }
+
+  @Post('/expenses')
+  @RequirePermission(CashVaultAction.Entry, AbilitySubject.CashVault)
+  @ApiOperation({ summary: 'Create an expense paid from the Cash Vault account.' })
+  @ApiBody({ type: CreateCashVaultExpenseDto })
+  public createCashVaultExpense(@Body() body: CreateCashVaultExpenseDto) {
+    return this.cashVaultApplication.createCashVaultExpense(body);
+  }
+
   @Get('/designated-admins')
   @RequirePermission(CashVaultAction.Manage, AbilitySubject.CashVault)
   @ApiOperation({ summary: 'List Cash Vault designated admins.' })
@@ -90,7 +105,10 @@ export class CashVaultController {
   public replaceDesignatedAdmins(
     @Body() body: ReplaceCashVaultDesignatedAdminsDto,
   ) {
-    return this.cashVaultApplication.replaceDesignatedAdmins(body);
+    return this.cashVaultApplication.replaceDesignatedAdmins({
+      ...body,
+      designatedByUserId: this.cls?.get('userId'),
+    });
   }
 
   @Post('/unlocks')
@@ -98,17 +116,22 @@ export class CashVaultController {
   @ApiOperation({ summary: 'Grant a temporary Cash Vault unlock.' })
   @ApiBody({ type: GrantCashVaultUnlockDto })
   public grantUnlock(@Body() body: GrantCashVaultUnlockDto) {
-    return this.cashVaultApplication.grantUnlock(body);
+    return this.cashVaultApplication.grantUnlock({
+      ...body,
+      grantedByUserId: this.cls?.get('userId'),
+    });
   }
 
   @Delete('/unlocks/:unlockId')
   @RequirePermission(CashVaultAction.Manage, AbilitySubject.CashVault)
   @ApiOperation({ summary: 'Revoke a temporary Cash Vault unlock.' })
-  @ApiBody({ type: RevokeCashVaultUnlockDto })
   public revokeUnlock(
     @Param('unlockId') unlockId: number,
-    @Body('revokedByUserId') revokedByUserId: number,
+    @Body('revokedByUserId') _revokedByUserId: number,
   ) {
-    return this.cashVaultApplication.revokeUnlock(unlockId, revokedByUserId);
+    return this.cashVaultApplication.revokeUnlock(
+      unlockId,
+      this.cls?.get('userId'),
+    );
   }
 }

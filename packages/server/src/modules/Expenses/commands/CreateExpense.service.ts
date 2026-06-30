@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Knex } from 'knex';
 import {
   IExpenseCreatedPayload,
@@ -13,6 +13,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { events } from '@/common/events/events';
 import { TenantModelProxy } from '@/modules/System/models/TenantBaseModel';
 import { CreateExpenseDto } from '../dtos/Expense.dto';
+import { CashVaultAccessService } from '@/modules/CashVault/CashVaultAccess.service';
 
 @Injectable()
 export class CreateExpense {
@@ -35,6 +36,9 @@ export class CreateExpense {
 
     @Inject(Expense.name)
     private readonly expenseModel: TenantModelProxy<typeof Expense>,
+
+    @Optional()
+    private readonly cashVaultAccess?: CashVaultAccessService,
   ) {}
 
   /**
@@ -47,6 +51,7 @@ export class CreateExpense {
       .query()
       .findById(expenseDTO.paymentAccountId)
       .throwIfNotFound();
+    await this.guardCashVaultPaymentAccount(paymentAccount);
 
     // Retrieves the DTO expense accounts ids.
     const DTOExpenseAccountsIds = expenseDTO.categories.map(
@@ -70,6 +75,23 @@ export class CreateExpense {
     // Validate the given expense categories not equal zero.
     this.validator.validateCategoriesNotEqualZero(expenseDTO);
   };
+
+  private async guardCashVaultPaymentAccount(paymentAccount: Account) {
+    if (
+      !(paymentAccount as any)?.isCashVault &&
+      !(paymentAccount as any)?.is_cash_vault
+    ) {
+      return;
+    }
+    const access = await this.cashVaultAccess?.getCurrentUserAccess();
+    if (!access || !this.cashVaultAccess) {
+      throw new Error('cash_vault_entry_permission_required');
+    }
+    const decision = this.cashVaultAccess.canCreateCashVaultEntry(access);
+    if (!decision.allowed) {
+      throw new Error((decision as any).reason);
+    }
+  }
 
   /**
    * Precedures.

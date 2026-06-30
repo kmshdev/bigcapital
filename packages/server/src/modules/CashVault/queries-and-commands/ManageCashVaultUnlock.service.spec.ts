@@ -94,6 +94,7 @@ describe('ManageCashVaultUnlockService', () => {
     expect(insert).toHaveBeenCalledWith({
       userId: 4,
       grantedByUserId: 9,
+      purpose: 'manage',
       expiresAt: '2026-06-27 12:00:00',
       revokedAt: null,
       revokedByUserId: null,

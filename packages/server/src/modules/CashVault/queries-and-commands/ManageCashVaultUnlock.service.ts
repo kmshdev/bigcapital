@@ -55,20 +55,27 @@ export class ManageCashVaultUnlockService {
     userId,
     grantedByUserId,
     expiresAt,
+    purpose = 'manage',
+    requireDesignatedAdmin = true,
   }: {
     userId: number;
     grantedByUserId: number;
     expiresAt: string;
+    purpose?: 'entry' | 'manage';
+    requireDesignatedAdmin?: boolean;
   }) {
-    const designatedAdmin = await this.designatedAdminModel()
-      .query()
-      .findOne({ userId });
-    if (!designatedAdmin) {
-      throw new Error('cash_vault_unlock_user_not_designated');
+    if (requireDesignatedAdmin) {
+      const designatedAdmin = await this.designatedAdminModel()
+        .query()
+        .findOne({ userId });
+      if (!designatedAdmin) {
+        throw new Error('cash_vault_unlock_user_not_designated');
+      }
     }
     return this.unlockModel().query().insert({
       userId,
       grantedByUserId,
+      purpose,
       expiresAt: this.toMysqlDateTime(expiresAt),
       revokedAt: null,
       revokedByUserId: null,

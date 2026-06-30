@@ -20,11 +20,23 @@ import { ExpensesExportable } from './ExpensesExportable';
 import { ExpensesImportable } from './ExpensesImportable';
 import { BulkDeleteExpensesService } from './BulkDeleteExpenses.service';
 import { ValidateBulkDeleteExpensesService } from './ValidateBulkDeleteExpenses.service';
+import { CashVaultAccessModule } from '../CashVault/CashVaultAccess.module';
 
 @Module({
-  imports: [TenancyModule, LedgerModule, BranchesModule, DynamicListModule],
+  imports: [
+    TenancyModule,
+    LedgerModule,
+    BranchesModule,
+    DynamicListModule,
+    CashVaultAccessModule,
+  ],
   controllers: [ExpensesController],
-  exports: [CreateExpense, ExpensesExportable, ExpensesImportable],
+  exports: [
+    CreateExpense,
+    GetExpensesService,
+    ExpensesExportable,
+    ExpensesImportable,
+  ],
   providers: [
     CreateExpense,
     ExpenseDTOTransformer,
