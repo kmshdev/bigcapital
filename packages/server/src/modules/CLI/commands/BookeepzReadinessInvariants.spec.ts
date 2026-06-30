@@ -1,0 +1,130 @@
+import {
+  evaluateAccountInvariants,
+  evaluateDesignatedAdmins,
+  evaluateTenantInvariants,
+} from './BookeepzReadinessInvariants';
+
+describe('BookeepzReadinessInvariants', () => {
+  it('passes tenant invariants for the four Bookeepz companies', () => {
+    const result = evaluateTenantInvariants([
+      {
+        id: 1,
+        organizationId: 'risingstone_infra_pvt_ltd',
+        initializedAt: new Date(),
+        seededAt: new Date(),
+        builtAt: new Date(),
+      },
+      {
+        id: 2,
+        organizationId: 'risingstone_ventures_pvt_ltd',
+        initializedAt: new Date(),
+        seededAt: new Date(),
+        builtAt: new Date(),
+      },
+      {
+        id: 3,
+        organizationId: 'risingstone_projects_pvt_ltd',
+        initializedAt: new Date(),
+        seededAt: new Date(),
+        builtAt: new Date(),
+      },
+      {
+        id: 4,
+        organizationId: 'mahetel_pvt_ltd',
+        initializedAt: new Date(),
+        seededAt: new Date(),
+        builtAt: new Date(),
+      },
+    ]);
+
+    expect(result.failures).toEqual([]);
+  });
+
+  it('requires the default expense, payment, and Cash Vault accounts for each company', () => {
+    const result = evaluateAccountInvariants({
+      business: {
+        name: 'Risingstone infra pvt ltd',
+        organizationId: 'risingstone_infra_pvt_ltd',
+        baseCurrency: 'INR',
+      },
+      accounts: [
+        {
+          slug: 'risingstone_infra_pvt_ltd-main-01',
+          name: 'Risingstone infra pvt ltd_main_01',
+          accountType: 'expense',
+          code: 'EXPMAIN01',
+          currencyCode: 'INR',
+          active: true,
+          predefined: false,
+        },
+        {
+          slug: 'risingstone_infra_pvt_ltd-payment-01',
+          name: 'Risingstone infra pvt ltd_payment_01',
+          accountType: 'bank',
+          code: 'PAYMAIN01',
+          currencyCode: 'INR',
+          active: true,
+          predefined: false,
+          isCashVault: false,
+        },
+        {
+          slug: 'bookeepz-hidden-cash-vault',
+          name: 'TEST_LEDGER_429909',
+          accountType: 'cash',
+          code: 'CASH-VAULT',
+          currencyCode: 'INR',
+          active: true,
+          predefined: false,
+          isCashVault: true,
+          cashVaultEntryEnabled: true,
+        },
+      ],
+    });
+
+    expect(result.failures).toEqual([]);
+  });
+
+  it('rejects stale Hidden Cash Vault display names', () => {
+    const result = evaluateAccountInvariants({
+      business: {
+        name: 'Risingstone infra pvt ltd',
+        organizationId: 'risingstone_infra_pvt_ltd',
+        baseCurrency: 'INR',
+      },
+      accounts: [
+        {
+          slug: 'bookeepz-hidden-cash-vault',
+          name: 'Hidden Cash Vault',
+          accountType: 'cash',
+          code: 'CASH-VAULT',
+          currencyCode: 'INR',
+          active: true,
+          predefined: false,
+          isCashVault: true,
+          cashVaultEntryEnabled: true,
+        },
+      ],
+    });
+
+    expect(result.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          class: 'bootstrap_incomplete',
+          target: 'risingstone_infra_pvt_ltd:bookeepz-hidden-cash-vault:name',
+        }),
+      ]),
+    );
+  });
+
+  it('requires exactly adminF0 and adminF1 as designated admins', () => {
+    const result = evaluateDesignatedAdmins({
+      organizationId: 'risingstone_infra_pvt_ltd',
+      rows: [
+        { email: 'adminF0@bookeepz.net' },
+        { email: 'adminF1@bookeepz.net' },
+      ],
+    });
+
+    expect(result.failures).toEqual([]);
+  });
+});
