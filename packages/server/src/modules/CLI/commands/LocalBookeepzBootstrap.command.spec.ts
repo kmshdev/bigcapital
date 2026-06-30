@@ -2,8 +2,11 @@ import {
   BOOTSTRAP_BUSINESSES,
   BOOTSTRAP_USERS,
   CASH_VAULT_PASSWORD_KEYS,
+  getCashVaultLedgerName,
   getDefaultExpenseAccountName,
   getDefaultExpenseAccountSlug,
+  getDefaultPaymentAccountName,
+  getDefaultPaymentAccountSlug,
   USER_PASSWORD_KEYS,
   parseBootstrapSecrets,
 } from './LocalBookeepzBootstrap.command';
@@ -22,6 +25,32 @@ describe('LocalBookeepzBootstrapCommand contract', () => {
     expect(BOOTSTRAP_BUSINESSES.map((business) => business.baseCurrency)).toEqual(
       ['INR', 'INR', 'INR', 'INR'],
     );
+  });
+
+  it('derives one normal payment account name and slug per business', () => {
+    expect(
+      BOOTSTRAP_BUSINESSES.map((business) => ({
+        name: getDefaultPaymentAccountName(business),
+        slug: getDefaultPaymentAccountSlug(business),
+      })),
+    ).toEqual([
+      {
+        name: 'Risingstone infra pvt ltd_payment_01',
+        slug: 'risingstone_infra_pvt_ltd-payment-01',
+      },
+      {
+        name: 'Risingstone ventures pvt ltd_payment_01',
+        slug: 'risingstone_ventures_pvt_ltd-payment-01',
+      },
+      {
+        name: 'Risingstone projects pvt Ltd_payment_01',
+        slug: 'risingstone_projects_pvt_ltd-payment-01',
+      },
+      {
+        name: 'Mahetel pvt ltd_payment_01',
+        slug: 'mahetel_pvt_ltd-payment-01',
+      },
+    ]);
   });
 
   it('derives one default expense account name and slug per business', () => {
@@ -50,6 +79,17 @@ describe('LocalBookeepzBootstrapCommand contract', () => {
     ]);
   });
 
+  it('derives opaque Cash Vault ledger names per business', () => {
+    const names = BOOTSTRAP_BUSINESSES.map((business) =>
+      getCashVaultLedgerName(business.organizationId),
+    );
+
+    expect(names).toHaveLength(new Set(names).size);
+    expect(names).toEqual(
+      names.map(() => expect.stringMatching(/^TEST_LEDGER_\d{6}$/)),
+    );
+  });
+
   it('pins the three login users and password env keys', () => {
     expect(BOOTSTRAP_USERS).toEqual([
       {
@@ -57,18 +97,21 @@ describe('LocalBookeepzBootstrapCommand contract', () => {
         firstName: 'Admin',
         lastName: 'F0',
         membershipRole: 'owner',
+        tenantRoleSlug: 'admin',
       },
       {
         email: 'adminF1@bookeepz.net',
         firstName: 'Admin',
         lastName: 'F1',
         membershipRole: 'owner',
+        tenantRoleSlug: 'admin',
       },
       {
         email: 'acca0@bookeepz.net',
         firstName: 'Accountant',
         lastName: 'A0',
         membershipRole: 'member',
+        tenantRoleSlug: 'accountant',
       },
     ]);
     expect(USER_PASSWORD_KEYS).toEqual([

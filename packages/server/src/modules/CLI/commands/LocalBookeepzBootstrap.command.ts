@@ -8,7 +8,18 @@ import { hashPassword } from '@/modules/Auth/Auth.utils';
 import {
   getDefaultExpenseAccountName,
   getDefaultExpenseAccountSlug,
+  getDefaultPaymentAccountName,
+  getDefaultPaymentAccountSlug,
 } from '@/modules/Bookeepz/DefaultExpenseAccount';
+import { AccountAction } from '@/interfaces/Account';
+import { AbilitySubject } from '@/modules/Roles/Roles.types';
+import { AttachmentAction } from '@/modules/Attachments/Attachments.types';
+import { BillAction } from '@/modules/Bills/Bills.types';
+import { IPaymentMadeAction } from '@/modules/BillPayments/types/BillPayments.types';
+import { VendorAction } from '@/modules/Customers/types/Customers.types';
+import { ExpenseAction } from '@/modules/Expenses/Expenses.types';
+import { ReportsAction } from '@/modules/FinancialStatements/types/Report.types';
+import { getCashVaultLedgerName } from '@/modules/CashVault/CashVaultLedgerName';
 
 export const BOOTSTRAP_BUSINESSES = [
   {
@@ -39,20 +50,50 @@ export const BOOTSTRAP_USERS = [
     firstName: 'Admin',
     lastName: 'F0',
     membershipRole: 'owner',
+    tenantRoleSlug: 'admin',
   },
   {
     email: 'adminF1@bookeepz.net',
     firstName: 'Admin',
     lastName: 'F1',
     membershipRole: 'owner',
+    tenantRoleSlug: 'admin',
   },
   {
     email: 'acca0@bookeepz.net',
     firstName: 'Accountant',
     lastName: 'A0',
     membershipRole: 'member',
+    tenantRoleSlug: 'accountant',
   },
 ] as const;
+
+const ACCOUNTANT_ROLE_PERMISSIONS = [
+  ...[
+    AbilitySubject.Vendor,
+    AbilitySubject.Bill,
+    AbilitySubject.PaymentMade,
+    AbilitySubject.Expense,
+  ].flatMap((subject) =>
+    [VendorAction.View, VendorAction.Create, VendorAction.Edit, VendorAction.Delete].map(
+      (ability) => ({ subject, ability }),
+    ),
+  ),
+  ...[AccountAction.VIEW, AccountAction.CREATE, AccountAction.EDIT].map(
+    (ability) => ({ subject: AbilitySubject.Account, ability }),
+  ),
+  ...[AttachmentAction.View, AttachmentAction.Delete].map((ability) => ({
+    subject: AbilitySubject.Attachment,
+    ability,
+  })),
+  ...[
+    ReportsAction.READ_PROFIT_LOSS,
+    ReportsAction.READ_AP_AGING_SUMMARY,
+    ReportsAction.READ_VENDORS_TRANSACTIONS,
+    ReportsAction.READ_VENDORS_SUMMARY_BALANCE,
+    ReportsAction.READ_SALES_TAX_LIABILITY_SUMMARY,
+  ].map((ability) => ({ subject: AbilitySubject.Report, ability })),
+];
 
 export const USER_PASSWORD_KEYS = [
   'ADMINF0_PASSWORD',
@@ -66,7 +107,13 @@ export const CASH_VAULT_PASSWORD_KEYS = [
   'ACCA0_CASH_VAULT_PASSWORD',
 ];
 
-export { getDefaultExpenseAccountName, getDefaultExpenseAccountSlug };
+export { getCashVaultLedgerName };
+export {
+  getDefaultExpenseAccountName,
+  getDefaultExpenseAccountSlug,
+  getDefaultPaymentAccountName,
+  getDefaultPaymentAccountSlug,
+};
 
 const emailByPasswordKey = {
   ADMINF0_PASSWORD: 'adminF0@bookeepz.net',
@@ -157,11 +204,13 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
           await tenantKnex.migrate.latest();
           await this.ensureTenantBaseline(tenantKnex);
           await this.ensureDefaultExpenseAccount(tenantKnex, business);
+          await this.ensureDefaultPaymentAccount(tenantKnex, business);
           await this.upsertTenantUsers(tenantKnex, usersByEmail);
           await this.upsertCashVaultData(
             tenantKnex,
             usersByEmail,
             secrets.cashVaultPasswords,
+            business,
           );
         } finally {
           await tenantKnex.destroy();
@@ -274,7 +323,7 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
   }
 
   private async upsertTenantUsers(knex, usersByEmail) {
-    const adminRole = await knex('roles').where({ slug: 'admin' }).first();
+    const roles = await this.ensureTenantBaseline(knex);
     for (const user of BOOTSTRAP_USERS) {
       const systemUser = usersByEmail[user.email];
       const existing = await knex('users')
@@ -287,7 +336,7 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
         active: true,
         inviteAcceptedAt: new Date(),
         systemUserId: systemUser.id,
-        roleId: adminRole.id,
+        roleId: roles[user.tenantRoleSlug].id,
       };
       if (existing) {
         await knex('users').where({ id: existing.id }).update(payload);
@@ -298,25 +347,70 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
   }
 
   private async ensureTenantBaseline(knex) {
-    const adminRole = await knex('roles').where({ slug: 'admin' }).first();
-    if (!adminRole) {
-      await knex('roles').insert({
+    const roles = {
+      admin: await this.ensureTenantRole(knex, {
         id: 1,
         name: 'role.admin.name',
-        predefined: true,
         slug: 'admin',
         description: 'role.admin.desc',
-      });
-    }
-    const staffRole = await knex('roles').where({ slug: 'staff' }).first();
-    if (!staffRole) {
-      await knex('roles').insert({
+      }),
+      staff: await this.ensureTenantRole(knex, {
         id: 2,
         name: 'role.staff.name',
-        predefined: true,
         slug: 'staff',
         description: 'role.staff.desc',
+      }),
+      accountant: await this.ensureTenantRole(knex, {
+        id: 3,
+        name: 'role.accountant.name',
+        slug: 'accountant',
+        description: 'role.accountant.desc',
+      }),
+    };
+
+    await this.ensureAccountantRolePermissions(knex, roles.accountant.id);
+
+    return roles;
+  }
+
+  private async ensureTenantRole(knex, role) {
+    const existing = await knex('roles').where({ slug: role.slug }).first();
+    if (existing) {
+      await knex('roles').where({ id: existing.id }).update({
+        name: role.name,
+        predefined: true,
+        slug: role.slug,
+        description: role.description,
       });
+      return knex('roles').where({ id: existing.id }).first();
+    }
+    await knex('roles').insert({
+      id: role.id,
+      name: role.name,
+      predefined: true,
+      slug: role.slug,
+      description: role.description,
+    });
+    return knex('roles').where({ slug: role.slug }).first();
+  }
+
+  private async ensureAccountantRolePermissions(knex, roleId) {
+    for (const permission of ACCOUNTANT_ROLE_PERMISSIONS) {
+      const existing = await knex('role_permissions')
+        .where({ roleId, subject: permission.subject, ability: permission.ability })
+        .first();
+      if (existing) {
+        await knex('role_permissions').where({ id: existing.id }).update({
+          value: true,
+        });
+      } else {
+        await knex('role_permissions').insert({
+          roleId,
+          subject: permission.subject,
+          ability: permission.ability,
+          value: true,
+        });
+      }
     }
   }
 
@@ -344,7 +438,37 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
     await knex('accounts').insert(payload);
   }
 
-  private async upsertCashVaultData(knex, usersByEmail, cashVaultPasswords) {
+  private async ensureDefaultPaymentAccount(
+    knex,
+    business: (typeof BOOTSTRAP_BUSINESSES)[number],
+  ) {
+    const slug = getDefaultPaymentAccountSlug(business);
+    const payload = {
+      name: getDefaultPaymentAccountName(business),
+      slug,
+      accountType: 'bank',
+      code: 'PAYMAIN01',
+      description: 'Default normal payment account for Bookeepz expense imports.',
+      active: true,
+      predefined: false,
+      currencyCode: business.baseCurrency,
+      isCashVault: false,
+      seededAt: new Date(),
+    };
+    const existing = await knex('accounts').where({ slug }).first();
+    if (existing) {
+      await knex('accounts').where({ id: existing.id }).update(payload);
+      return;
+    }
+    await knex('accounts').insert(payload);
+  }
+
+  private async upsertCashVaultData(
+    knex,
+    usersByEmail,
+    cashVaultPasswords,
+    business: (typeof BOOTSTRAP_BUSINESSES)[number],
+  ) {
     const hasCredentialsTable =
       (await knex.schema.hasTable('cash_vault_credentials')) ||
       (await knex.schema.hasTable('CASH_VAULT_CREDENTIALS'));
@@ -357,7 +481,7 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
       });
     }
 
-    const cashAccount = await this.ensureCashVaultAccount(knex);
+    const cashAccount = await this.ensureCashVaultAccount(knex, business);
     await knex('accounts').where({ id: cashAccount.id }).update({
       isCashVault: true,
       cashVaultEntryEnabled: true,
@@ -400,14 +524,23 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
     }
   }
 
-  private async ensureCashVaultAccount(knex) {
+  private async ensureCashVaultAccount(
+    knex,
+    business: (typeof BOOTSTRAP_BUSINESSES)[number],
+  ) {
+    const name = getCashVaultLedgerName(business.organizationId);
     const existing = await knex('accounts')
       .where({ slug: 'bookeepz-hidden-cash-vault' })
       .first();
-    if (existing) return existing;
+    if (existing) {
+      if (existing.name !== name) {
+        await knex('accounts').where({ id: existing.id }).update({ name });
+      }
+      return { ...existing, name };
+    }
 
     const [id] = await knex('accounts').insert({
-      name: 'Hidden Cash Vault',
+      name,
       slug: 'bookeepz-hidden-cash-vault',
       accountType: 'cash',
       code: 'CASH-VAULT',

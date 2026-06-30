@@ -2,5 +2,7 @@
   "admin.name": "Admin",
   "admin.desc": "Unrestricted access to all modules.",
   "staff.name": "Staff",
-  "staff.desc": "Access to all modules except reports, settings and accountant."
+  "staff.desc": "Access to all modules except reports, settings and accountant.",
+  "accountant.name": "Accountant",
+  "accountant.desc": "Normal expense workflow access without admin role privileges."
 }
