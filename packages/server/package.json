@@ -29,6 +29,7 @@
     "cli:tenants:migrate:make": "ts-node -r tsconfig-paths/register src/cli.ts tenants:migrate:make",
     "cli:tenants:list": "ts-node -r tsconfig-paths/register src/cli.ts tenants:list",
     "cli:local:bookeepz:bootstrap": "ts-node -r tsconfig-paths/register src/cli.ts local:bookeepz:bootstrap",
+    "cli:local:bookeepz:readiness": "ts-node -r tsconfig-paths/register src/cli.ts local:bookeepz:readiness",
     "openapi:export": "ts-node -r tsconfig-paths/register src/cli.ts openapi:export",
     "cli:system:seed:latest": "ts-node -r tsconfig-paths/register src/cli.ts system:seed:latest",
     "cli:tenants:seed:latest": "ts-node -r tsconfig-paths/register src/cli.ts tenants:seed:latest"

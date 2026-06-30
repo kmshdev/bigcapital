@@ -26,6 +26,7 @@
   "system:seed:latest": "lerna run cli:system:seed:latest --scope \"@bigcapital/server\"",
   "tenants:seed:latest": "lerna run cli:tenants:seed:latest --scope \"@bigcapital/server\"",
   "local:bookeepz:bootstrap": "lerna run cli:local:bookeepz:bootstrap --scope \"@bigcapital/server\"",
+  "local:bookeepz:readiness": "lerna run cli:local:bookeepz:readiness --scope \"@bigcapital/server\"",
   "generate:sdk-types": "lerna run openapi:export --scope \"@bigcapital/server\" && lerna run generate --scope \"@bigcapital/sdk-ts\" && lerna run build --scope \"@bigcapital/sdk-ts\"",
     "format": "lerna run format",
     "format:check": "lerna run format:check"
