@@ -20,6 +20,11 @@ import { VendorAction } from '@/modules/Customers/types/Customers.types';
 import { ExpenseAction } from '@/modules/Expenses/Expenses.types';
 import { ReportsAction } from '@/modules/FinancialStatements/types/Report.types';
 import { getCashVaultLedgerName } from '@/modules/CashVault/CashVaultLedgerName';
+import {
+  ensureBookeepzPreferenceDefaults,
+  fillMissingMetadataValues,
+  getBookeepzGeneralMetadataDefaults,
+} from './BookeepzPreferenceDefaults';
 
 export const BOOTSTRAP_BUSINESSES = [
   {
@@ -205,6 +210,7 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
           await this.ensureTenantBaseline(tenantKnex);
           await this.ensureDefaultExpenseAccount(tenantKnex, business);
           await this.ensureDefaultPaymentAccount(tenantKnex, business);
+          await ensureBookeepzPreferenceDefaults(tenantKnex, business);
           await this.upsertTenantUsers(tenantKnex, usersByEmail);
           await this.upsertCashVaultData(
             tenantKnex,
@@ -273,19 +279,17 @@ export class LocalBookeepzBootstrapCommand extends BaseCommand {
         });
         tenant = await knex('tenants').where({ id }).first();
       }
-      const metadata = {
-        tenantId: tenant.id,
-        name: business.name,
-        baseCurrency: business.baseCurrency,
-        location: 'IN',
-        language: 'en',
-        timezone: 'Asia/Kolkata',
-        dateFormat: 'DD/MM/YYYY',
-        fiscalYear: '1',
-      };
+      const metadataDefaults = getBookeepzGeneralMetadataDefaults(
+        tenant.id,
+        business,
+      );
       const existingMetadata = await knex('tenants_metadata')
         .where({ tenantId: tenant.id })
         .first();
+      const metadata = fillMissingMetadataValues(
+        existingMetadata,
+        metadataDefaults,
+      );
       if (existingMetadata) {
         await knex('tenants_metadata')
           .where({ tenantId: tenant.id })
