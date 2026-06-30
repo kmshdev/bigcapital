@@ -207,6 +207,35 @@ describe('Bookeepz preference default helpers', () => {
     });
   });
 
+  it('normalizes legacy metadata values that render blank in General preferences', () => {
+    const defaults = getBookeepzGeneralMetadataDefaults(10, business);
+
+    expect(
+      fillMissingMetadataValues(
+        {
+          tenantId: 10,
+          name: business.name,
+          baseCurrency: 'INR',
+          location: 'IN',
+          language: 'en',
+          timezone: 'Asia/Kolkata',
+          dateFormat: 'DD/MM/YYYY',
+          fiscalYear: '1',
+        },
+        defaults,
+      ),
+    ).toEqual({
+      tenantId: 10,
+      name: business.name,
+      baseCurrency: 'INR',
+      location: 'IN',
+      language: 'en',
+      timezone: 'Asia/Kolkata',
+      dateFormat: 'DD/MM/YY',
+      fiscalYear: 'april',
+    });
+  });
+
   it('builds only the semantically valid Accountant and Items settings', () => {
     const settings = buildBookeepzPreferenceSettings({
       expenseAccountId: 31,

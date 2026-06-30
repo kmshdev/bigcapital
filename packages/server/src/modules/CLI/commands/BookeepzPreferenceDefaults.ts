@@ -28,6 +28,13 @@ export function isBlankPreferenceValue(value: unknown): boolean {
   );
 }
 
+function isStaleMetadataValue(key: string, value: unknown): boolean {
+  return (
+    (key === 'dateFormat' && value === 'DD/MM/YYYY') ||
+    (key === 'fiscalYear' && value === '1')
+  );
+}
+
 export function getBookeepzGeneralMetadataDefaults(
   tenantId: number,
   business: BookeepzBootstrapBusiness,
@@ -52,7 +59,11 @@ export function fillMissingMetadataValues<T extends Record<string, any>>(
     const existingValue = existingMetadata?.[key];
     return {
       ...metadata,
-      [key]: isBlankPreferenceValue(existingValue) ? value : existingValue,
+      [key]:
+        isBlankPreferenceValue(existingValue) ||
+        isStaleMetadataValue(key, existingValue)
+          ? value
+          : existingValue,
     };
   }, {} as T);
 }
