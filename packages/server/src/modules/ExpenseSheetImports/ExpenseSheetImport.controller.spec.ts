@@ -1,6 +1,22 @@
+import 'reflect-metadata';
+
+import {
+  REQUIRED_PERMISSION_KEY,
+  RequiredPermission,
+} from '@/modules/Roles/RequirePermission.decorator';
+import { AbilitySubject } from '@/modules/Roles/Roles.types';
+import { ExpenseAction } from '@/modules/Expenses/Expenses.types';
 import { ExpenseSheetImportController } from './ExpenseSheetImport.controller';
 
 describe('ExpenseSheetImportController', () => {
+  const getRequiredPermission = (
+    methodName: keyof ExpenseSheetImportController,
+  ): RequiredPermission =>
+    Reflect.getMetadata(
+      REQUIRED_PERMISSION_KEY,
+      ExpenseSheetImportController.prototype[methodName],
+    );
+
   it('exposes upload, mapping, preview, and commit methods through the service', async () => {
     const app = {
       upload: jest.fn().mockResolvedValue({ importId: 1 }),
@@ -44,6 +60,25 @@ describe('ExpenseSheetImportController', () => {
     ).resolves.toEqual({ importId: 7, rows: [] });
     expect(app.uploadFromFile).toHaveBeenCalledWith(file, {
       uploadedByUserId: 12,
+    });
+  });
+
+  it('requires expense permissions on import workflow routes', () => {
+    expect(getRequiredPermission('upload')).toEqual({
+      ability: ExpenseAction.Create,
+      subject: AbilitySubject.Expense,
+    });
+    expect(getRequiredPermission('commit')).toEqual({
+      ability: ExpenseAction.Create,
+      subject: AbilitySubject.Expense,
+    });
+    expect(getRequiredPermission('mapping')).toEqual({
+      ability: ExpenseAction.View,
+      subject: AbilitySubject.Expense,
+    });
+    expect(getRequiredPermission('preview')).toEqual({
+      ability: ExpenseAction.View,
+      subject: AbilitySubject.Expense,
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -11,14 +12,21 @@ import { ApiCommonHeaders } from '@/common/decorators/ApiCommonHeaders';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ExpenseSheetImportApplication } from './ExpenseSheetImport.application';
 import { uploadImportFileMulterOptions } from '../Import/ImportMulter.utils';
+import { RequirePermission } from '@/modules/Roles/RequirePermission.decorator';
+import { PermissionGuard } from '@/modules/Roles/Permission.guard';
+import { AuthorizationGuard } from '@/modules/Roles/Authorization.guard';
+import { AbilitySubject } from '@/modules/Roles/Roles.types';
+import { ExpenseAction } from '../Expenses/Expenses.types';
 
 @ApiTags('Expense Sheet Imports')
 @ApiCommonHeaders()
 @Controller('expense-sheet-imports')
+@UseGuards(AuthorizationGuard, PermissionGuard)
 export class ExpenseSheetImportController {
   constructor(private readonly application: ExpenseSheetImportApplication) {}
 
   @Post()
+  @RequirePermission(ExpenseAction.Create, AbilitySubject.Expense)
   @ApiOperation({ summary: 'Create an INR expense-sheet import.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -51,6 +59,7 @@ export class ExpenseSheetImportController {
   }
 
   @Post(':importId/mapping')
+  @RequirePermission(ExpenseAction.View, AbilitySubject.Expense)
   @ApiOperation({ summary: 'Map expense-sheet headers.' })
   public mapping(
     @Param('importId') importId: number,
@@ -60,6 +69,7 @@ export class ExpenseSheetImportController {
   }
 
   @Post(':importId/preview')
+  @RequirePermission(ExpenseAction.View, AbilitySubject.Expense)
   @ApiOperation({ summary: 'Preview expense-sheet rows.' })
   public preview(
     @Param('importId') importId: number,
@@ -69,6 +79,7 @@ export class ExpenseSheetImportController {
   }
 
   @Post(':importId/commit')
+  @RequirePermission(ExpenseAction.Create, AbilitySubject.Expense)
   @ApiOperation({ summary: 'Commit valid expense-sheet rows.' })
   public commit(
     @Param('importId') importId: number,
