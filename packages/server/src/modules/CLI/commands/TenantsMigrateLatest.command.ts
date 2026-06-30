@@ -49,6 +49,7 @@ export class TenantsMigrateLatestCommand extends BaseCommand {
       const migrateTenant = async (organizationId: string) => {
         try {
           const tenantKnex = this.initTenantKnex(organizationId);
+          await this.normalizeTenantMigrationNames(tenantKnex);
           const [batchNo, _log] = await tenantKnex.migrate.latest();
           const tenantDb = `${this.configService.get('tenantDatabase.dbNamePrefix')}${organizationId}`;
 
@@ -77,6 +78,18 @@ export class TenantsMigrateLatestCommand extends BaseCommand {
       }
     } catch (error) {
       this.exit(error);
+    }
+  }
+
+  private async normalizeTenantMigrationNames(tenantKnex: any) {
+    try {
+      await tenantKnex.raw(
+        "UPDATE knex_migrations SET name = REPLACE(name, '.ts', '.js') WHERE name LIKE '%.ts'",
+      );
+    } catch (error) {
+      if (error?.code !== 'ER_NO_SUCH_TABLE') {
+        throw error;
+      }
     }
   }
 }

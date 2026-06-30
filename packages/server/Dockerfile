@@ -4,7 +4,7 @@ FROM node:18.16.0-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@9.0.5
+RUN npm install -g pnpm@9.1.2
 
 # Install build dependencies
 RUN apk add --no-cache python3 build-base chromium
@@ -24,7 +24,7 @@ RUN pnpm install --frozen-lockfile
 COPY --chown=node:node ./packages/server ./packages/server
 
 # Build NestJS application
-RUN pnpm run build:server --skip-nx-cache
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm run build:server --skip-nx-cache
 
 # Stage 2: Production
 FROM node:18.16.0-alpine AS production
@@ -32,7 +32,7 @@ FROM node:18.16.0-alpine AS production
 WORKDIR /app
 
 # Install pnpm for production
-RUN npm install -g pnpm@9.0.5
+RUN npm install -g pnpm@9.1.2
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -76,7 +76,6 @@ COPY --from=builder --chown=nodejs:nodejs /app/shared ./shared
 
 # Set runtime environment variables (these should be provided at runtime via docker-compose or k8s)
 ENV NODE_ENV=production
-ENV NEW_RELIC_NO_CONFIG_FILE=true
 ENV PORT=3000
 
 # Switch to non-root user

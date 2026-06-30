@@ -72,7 +72,7 @@ export abstract class BaseCommand extends CommandRunner {
           .filter((file) => /\.(js|ts)$/.test(file))
           .filter((file) => !/\.spec\.(js|ts)$/.test(file))
           .sort(),
-      getMigrationName: (migration) => migration,
+      getMigrationName: (migration) => migration.replace(/\.ts$/, '.js'),
       getMigration: async (migration) => require(path.join(directory, migration)),
     };
   }

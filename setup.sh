@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 # Initialize the essential variables.
 BRANCH=main
@@ -10,6 +11,14 @@ DOCKER_FILE_PATH=./docker-compose.prod.yml
 DOCKER_COMPOSE_DIR=docker
 DOCKER_ENV_EXAMPLE_PATH=$CURRENT/.env.example
 DOCKER_ENV_PATH=$CURRENT/.env
+BOOKEEPZ_USER_ENV_PATH=$CURRENT/.user.env
+
+COMPOSE_SERVER_IMAGE=bigcapitalhq/server:latest
+COMPOSE_WEBAPP_IMAGE=bigcapitalhq/webapp:latest
+LOCAL_SERVER_IMAGE=${LOCAL_SERVER_IMAGE:-$COMPOSE_SERVER_IMAGE}
+LOCAL_WEBAPP_IMAGE=${LOCAL_WEBAPP_IMAGE:-$COMPOSE_WEBAPP_IMAGE}
+SERVER_DOCKERFILE_PATH=${SERVER_DOCKERFILE_PATH:-./packages/server/Dockerfile}
+WEBAPP_DOCKERFILE_PATH=${WEBAPP_DOCKERFILE_PATH:-./packages/webapp/Dockerfile}
 
 # if docker-compose is installed
 if command -v docker-compose &> /dev/null
@@ -25,12 +34,12 @@ clear
 
 cat <<"EOF"
 --------------------------------------------
-         ×      ≠≠≠≠   ____  _                       _ _        _ 
+         ×      ≠≠≠≠   ____  _                       _ _        _
        ××××   ≠≠≠≠≠    | __ )(_) __ _  ___ __ _ _ __ (_) |_ __ _| |
      ×××××  ≠≠≠≠≠      |  _ \| |/ _` |/ __/ _` | '_ \| | __/ _` | |
    ×××××  ≠≠≠≠≠=       | |_) | | (_| | (_| (_| | |_) | | || (_| | |
  ×××××  ≠≠≠≠≠≠         |____/|_|\__, |\___\__,_| .__/|_|\__\__,_|_|
-××××     ≠≠≠                    |___/          |_|                 
+××××     ≠≠≠                    |___/          |_|
 --------------------------------------------
 Self-hosted modern core accounting software
 --------------------------------------------
@@ -46,7 +55,7 @@ clone_github_folder() {
     git clone --branch=main --depth=1 "$1" "$temp_dir"
     echo "The repository has been cloned."
 
-   DATE=$(date +%s) 
+   DATE=$(date +%s)
 
     if [ -f "$CURRENT/docker-compose.prod.yml" ]
     then
@@ -90,11 +99,13 @@ function askForAction() {
         echo "   4) Restart"
         echo "   5) Upgrade"
         echo "   6) Logs"
-        echo "   7) Exit"
-        echo 
+        echo "   7) Build local app images"
+        echo "   8) Start with local app images"
+        echo "   9) Exit"
+        echo
         read -p "Action [2]: " ACTION
 
-        until [[ -z "$ACTION" || "$ACTION" =~ ^[1-7]$ ]]; do
+        until [[ -z "$ACTION" || "$ACTION" =~ ^[1-9]$ ]]; do
             echo "$ACTION: invalid selection."
             read -p "Action [2]: " ACTION
         done
@@ -130,7 +141,15 @@ function askForAction() {
     then
         viewLogs $@
         askForAction "logs"
-    elif [ "$ACTION" == "7" ] 
+    elif [ "$ACTION" == "7" ] || [ "$DEFAULT_ACTION" == "build-local" ]
+    then
+        buildLocalAppImages
+        askForAction
+    elif [ "$ACTION" == "8" ] || [ "$DEFAULT_ACTION" == "start-local" ]
+    then
+        startLocalServices
+        askForAction
+    elif [ "$ACTION" == "9" ]
     then
         exit 0
     else
@@ -145,7 +164,7 @@ function install() {
     setup_env
 }
 
-function download() { 
+function download() {
     # Download the docker/, docker-compose file and .env.example
     clone_github_folder "https://github.com/bigcapitalhq/bigcapital.git"
 
@@ -154,6 +173,57 @@ function download() {
     echo ""
     echo "The stable version is now available for you to use"
     echo ""
+}
+
+function buildLocalAppImages() {
+    echo "Building local Bigcapital app images from this checkout..."
+    echo "   Server image: $LOCAL_SERVER_IMAGE"
+    echo "   Webapp image: $LOCAL_WEBAPP_IMAGE"
+    echo ""
+
+    local server_tags="-t $LOCAL_SERVER_IMAGE"
+    local webapp_tags="-t $LOCAL_WEBAPP_IMAGE"
+
+    if [ "$LOCAL_SERVER_IMAGE" != "$COMPOSE_SERVER_IMAGE" ]; then
+        server_tags="$server_tags -t $COMPOSE_SERVER_IMAGE"
+    fi
+
+    if [ "$LOCAL_WEBAPP_IMAGE" != "$COMPOSE_WEBAPP_IMAGE" ]; then
+        webapp_tags="$webapp_tags -t $COMPOSE_WEBAPP_IMAGE"
+    fi
+
+    /bin/bash -c "docker build -f $SERVER_DOCKERFILE_PATH $server_tags ." || exit 1
+    /bin/bash -c "docker build -f $WEBAPP_DOCKERFILE_PATH $webapp_tags ." || exit 1
+
+    echo ""
+    echo "Local app images built successfully ✅"
+    echo "docker-compose.prod.yml already references these tags, so Start will run this local build."
+    echo ""
+}
+
+function startLocalServices() {
+    buildLocalAppImages
+    startServices
+    bootstrapLocalBookeepzData
+}
+
+function bootstrapLocalBookeepzData() {
+    if [ ! -f "$BOOKEEPZ_USER_ENV_PATH" ]; then
+        echo "   Skipping Bookeepz local bootstrap: .user.env was not found"
+        return
+    fi
+
+    local api_container_id=$(docker container ls -q -f "name=bigcapital-server")
+    if [ -z "$api_container_id" ]; then
+        echo "Bookeepz local bootstrap failed: bigcapital-server is not running ❌"
+        exit 1
+    fi
+
+    docker cp "$BOOKEEPZ_USER_ENV_PATH" "$api_container_id:/app/.user.env" || exit 1
+    docker exec -u root "$api_container_id" chown nodejs:nodejs /app/.user.env || exit 1
+    docker exec -u root "$api_container_id" chmod 600 /app/.user.env || exit 1
+    docker exec -w /app/packages/server "$api_container_id" node dist/cli.js local:bookeepz:bootstrap || exit 1
+    echo "   Bookeepz local users and companies bootstrapped successfully ✅"
 }
 
 function startServices() {
@@ -190,18 +260,22 @@ function startServices() {
 
     local api_container_id=$(docker container ls -q -f "name=bigcapital-server")
     local idx2=0
-    while ! docker logs $api_container_id 2>&1 | grep -m 1 -i "Server listening on port" | grep -q ".";
+    while ! docker logs $api_container_id 2>&1 | grep -E -m 1 -i "Server listening on port|Nest application successfully started" | grep -q ".";
     do
         local message=">> Waiting for Bigcapital Server to Start"
-        local dots=$(printf '%*s' $idx2 | tr ' ' '.')    
+        local dots=$(printf '%*s' $idx2 | tr ' ' '.')
         echo -ne "\r$message$dots"
         ((idx2++))
         sleep 1
     done
     printf "\r\033[K"
     echo "   API server started successfully ✅"
-    ACCESS_URL=$(grep -E '^BASE_URL=' "$DOCKER_ENV_PATH" 2>/dev/null | cut -d= -f2-)
-    [ -z "$ACCESS_URL" ] && ACCESS_URL="http://localhost"
+    local public_proxy_port=$(grep -E '^PUBLIC_PROXY_PORT=' "$DOCKER_ENV_PATH" 2>/dev/null | cut -d= -f2-)
+    if [ -z "$public_proxy_port" ] || [ "$public_proxy_port" = "80" ]; then
+        ACCESS_URL="http://127.0.0.1"
+    else
+        ACCESS_URL="http://127.0.0.1:$public_proxy_port"
+    fi
     echo "   Bigcapital server started successfully ✅"
     echo ""
     echo "   You can access the application at $ACCESS_URL"
@@ -229,7 +303,7 @@ function viewLogs(){
         echo "   4) Envoy Proxy"
         echo "   5) MariaDB"
         echo "   0) Back to Main Menu"
-        echo 
+        echo
         read -p "Service: " DOCKER_SERVICE_NAME
 
         until (( DOCKER_SERVICE_NAME >= 0 && DOCKER_SERVICE_NAME <= 5 )); do

@@ -23,7 +23,7 @@ export class GetLemonSqueezyCheckoutService {
     const user = await this.tenancyContext.getSystemUser();
 
     return createCheckout(
-      this.configService.get('lemonSqueezy.storeId'),
+      this.configService.get('lemonsqueezy.storeId'),
       variantId,
       {
         checkoutOptions: {
@@ -40,7 +40,7 @@ export class GetLemonSqueezyCheckoutService {
         },
         productOptions: {
           enabledVariants: [variantId],
-          redirectUrl: this.configService.get('lemonSqueezy.redirectTo'),
+          redirectUrl: this.configService.get('lemonsqueezy.redirectTo'),
           receiptButtonText: 'Go to Dashboard',
           receiptThankYouNote: 'Thank you for signing up to Lemon Stand!',
         },

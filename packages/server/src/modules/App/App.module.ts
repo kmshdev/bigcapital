@@ -21,6 +21,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { AppController } from './App.controller';
 import { AppService } from './App.service';
+import { resolveI18nPath } from './I18nPath';
 import { ItemsModule } from '../Items/Items.module';
 import { config } from '../../common/config';
 import { SystemDatabaseModule } from '../System/SystemDB/SystemDB.module';
@@ -81,7 +82,7 @@ import { PaymentLinksModule } from '../PaymentLinks/PaymentLinks.module';
 import { RolesModule } from '../Roles/Roles.module';
 import { SubscriptionModule } from '../Subscription/Subscription.module';
 import { OrganizationModule } from '../Organization/Organization.module';
-import { WorkspacesModule } from '../ee/Workspaces/Workspaces.module';
+import { WorkspacesModule } from '../EE/Workspaces/Workspaces.module';
 import { TenantDBManagerModule } from '../TenantDBManager/TenantDBManager.module';
 import { PaymentServicesModule } from '../PaymentServices/PaymentServices.module';
 import { AuthModule } from '../Auth/Auth.module';
@@ -128,7 +129,7 @@ import { ExpenseSheetImportModule } from '../ExpenseSheetImports/ExpenseSheetImp
       useFactory: () => ({
         fallbackLanguage: 'en',
         loaderOptions: {
-          path: join(__dirname, '../../i18n/'),
+          path: resolveI18nPath(),
           watch: true,
         },
       }),

@@ -6,6 +6,7 @@ import { ClsModule, ClsService } from 'nestjs-cls';
 import { ConfigService } from '@nestjs/config';
 import { TENANCY_DB_CONNECTION } from './TenancyDB.constants';
 import { UnitOfWork } from './UnitOfWork.service';
+import { sanitizeDatabaseName } from '@/utils/sanitize-database-name';
 
 const lruCache = new LRUCache();
 
@@ -16,7 +17,8 @@ export const TenancyDatabaseProxyProvider = ClsModule.forFeatureAsync({
   inject: [ConfigService, ClsService],
   useFactory: async (configService: ConfigService, cls: ClsService) => () => {
     const organizationId = cls.get('organizationId');
-    const database = `bigcapital_tenant_${organizationId}`;
+    const dbNamePrefix = configService.get('tenantDatabase.dbNamePrefix');
+    const database = sanitizeDatabaseName(`${dbNamePrefix}${organizationId}`);
     const cachedInstance = lruCache.get(database);
 
     if (cachedInstance) {
@@ -26,6 +28,7 @@ export const TenancyDatabaseProxyProvider = ClsModule.forFeatureAsync({
       client: configService.get('tenantDatabase.client'),
       connection: {
         host: configService.get('tenantDatabase.host'),
+        port: configService.get('tenantDatabase.port'),
         user: configService.get('tenantDatabase.user'),
         password: configService.get('tenantDatabase.password'),
         database,

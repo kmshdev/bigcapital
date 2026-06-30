@@ -33,13 +33,13 @@ export class LemonSqueezyWebhooks {
   ): Promise<void> {
     configureLemonSqueezy();
 
-    if (!this.configService.get('lemonSqueezy.webhookSecret')) {
+    if (!this.configService.get('lemonsqueezy.webhookSecret')) {
       throw new Error('Lemon Squeezy Webhook Secret not set in .env');
     }
     if (!signature) {
       throw new Error('Request signature is required.');
     }
-    const secret = this.configService.get('lemonSqueezy.webhookSecret');
+    const secret = this.configService.get('lemonsqueezy.webhookSecret');
     const hmacSignature = createHmacSignature(secret, rawData);
 
     if (!compareSignatures(hmacSignature, signature)) {
