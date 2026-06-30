@@ -1846,7 +1846,7 @@ Expected when local data is correct: `Bookeepz readiness: PASS`.
 
 Expected when local data or runtime is stale: command exits nonzero and prints failure rows with one of these classes: `env_missing`, `env_mismatch`, `runtime_stale`, `bootstrap_incomplete`, `credential_mismatch`, `access_policy_mismatch`, or `report_regression`.
 
-- [ ] **Step 6: Commit verification-only fixes if needed**
+- [x] **Step 6: Commit verification-only fixes if needed**
 
 If verification reveals command-output formatting or test-only issues, commit only readiness files:
 
