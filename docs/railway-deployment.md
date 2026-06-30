@@ -91,9 +91,12 @@ curl -fsS "https://<webapp-domain>/"
 
 ## Deployment Invariants
 
-- `bookeepz-webapp` is the only public browser entrypoint.
+- `bookeepz-webapp` is the only public browser entrypoint. Its Railway domain
+  must target port `8080`, matching the Nginx runtime `PORT`.
 - `bookeepz-server` stays private and listens on Railway's injected `PORT`
   (`8080` on the current Railway runtime).
+- `gotenberg` stays private and must keep `PORT=3000`, matching the upstream
+  image listener and `/health` endpoint.
 - `BASE_URL` and `GOTENBERG_DOCS_URL` must use the public webapp domain after
   the Railway domain is assigned.
 - `TENANT_DB_NAME_PERFIX` must keep the existing misspelling.

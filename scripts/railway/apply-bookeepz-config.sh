@@ -142,6 +142,7 @@ railway_cmd environment edit --environment "$ENVIRONMENT" \
 
 set_var "bookeepz-webapp" 'BOOKEEPZ_SERVER_PRIVATE_HOST=${{bookeepz-server.RAILWAY_PRIVATE_DOMAIN}}'
 set_var "bookeepz-webapp" "BOOKEEPZ_SERVER_PRIVATE_PORT=8080"
+set_var "gotenberg" "PORT=3000"
 
 set_var "bookeepz-server" "NODE_ENV=production"
 set_var "bookeepz-server" 'DB_HOST=${{MySQL.MYSQLHOST}}'
