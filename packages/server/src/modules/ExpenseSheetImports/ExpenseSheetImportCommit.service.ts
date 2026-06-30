@@ -1,8 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { TenantModelProxy } from '@/modules/System/models/TenantBaseModel';
 import { ExpenseSheetImport } from './models/ExpenseSheetImport.model';
 import { ExpenseSheetRow } from './models/ExpenseSheetRow.model';
 import { getExpenseSheetColumn } from './ExpenseSheetSchema';
+import { Account } from '@/modules/Accounts/models/Account.model';
+import { CreateExpense } from '@/modules/Expenses/commands/CreateExpense.service';
 
 type PreviewRow = {
   rowNumber: number;
@@ -17,6 +19,35 @@ type PreviewRowsOptions = {
 
 const moneyPattern = /^-?\d+(\.\d{1,2})?$/;
 
+const valueKeyAliases = {
+  bill_no: 'billNo',
+  bill_date: 'billDate',
+  item_description: 'itemDescription',
+  basic_value: 'basicValue',
+  freight_other: 'freightOther',
+  total_bill_value: 'totalBillValue',
+  gst_on_r_c_m: 'gstOnRCM',
+  gst_on_rcm: 'gstOnRCM',
+  tds_deducted: 'tdsDeducted',
+  late_fee_and_interest: 'lateFeeAndInterest',
+  payment_date: 'paymentDate',
+  mode_of_payment: 'modeOfPayment',
+  balance_payable: 'balancePayable',
+  currency_code: 'currencyCode',
+  default_expense_account_name: 'defaultExpenseAccountName',
+  default_expense_account_slug: 'defaultExpenseAccountSlug',
+  vendor_name: 'vendorName',
+} as const;
+
+const normalizeValues = (values: Record<string, unknown> = {}) =>
+  Object.entries(values).reduce<Record<string, unknown>>(
+    (normalized, [key, value]) => {
+      normalized[valueKeyAliases[key] || key] = value;
+      return normalized;
+    },
+    {},
+  );
+
 @Injectable()
 export class ExpenseSheetImportCommitService {
   constructor(
@@ -24,6 +55,11 @@ export class ExpenseSheetImportCommitService {
     private readonly importModel: TenantModelProxy<typeof ExpenseSheetImport>,
     @Inject(ExpenseSheetRow.name)
     private readonly rowModel: TenantModelProxy<typeof ExpenseSheetRow>,
+    @Optional()
+    @Inject(Account.name)
+    private readonly accountModel?: TenantModelProxy<typeof Account>,
+    @Optional()
+    private readonly createExpense?: CreateExpense,
   ) {}
 
   public previewRows(
@@ -88,24 +124,31 @@ export class ExpenseSheetImportCommitService {
   }
 
   public async commitRows(importId: number, rows: PreviewRow[]) {
-    const validRows = rows.filter((row) => !row.validationErrors);
+    const normalizedRows = rows.map((row, index) => this.normalizePreviewRow(row, index));
+    const validRows = normalizedRows.filter((row) => !row.validationErrors);
+    let postedExpenses = 0;
     if (validRows.length > 0) {
-      await this.rowModel()
-        .query()
-        .insert(
-          validRows.map((row) => ({
+      for (const row of validRows) {
+        await this.rowModel()
+          .query()
+          .insert({
             importId,
             rowNumber: row.rowNumber,
             values: row.values,
             validationErrors: null,
             committedTransactionId: null,
-          })),
-        );
+          });
+      }
+      postedExpenses = await this.postExpenses(validRows);
     }
-    return {
+    const result: Record<string, number> = {
       committed: validRows.length,
-      rejected: rows.length - validRows.length,
+      rejected: normalizedRows.length - validRows.length,
     };
+    if (this.accountModel && this.createExpense) {
+      result.postedExpenses = postedExpenses;
+    }
+    return result;
   }
 
   public async upload(sourceFilename: string, uploadedByUserId?: number) {
@@ -116,5 +159,107 @@ export class ExpenseSheetImportCommitService {
       sourceFilename,
       mapping: null,
     });
+  }
+
+  private async postExpenses(rows: PreviewRow[]) {
+    if (!this.accountModel || !this.createExpense) {
+      return 0;
+    }
+    let posted = 0;
+    for (const row of rows) {
+      const dto = await this.buildExpenseDto(row);
+      if (!dto) {
+        continue;
+      }
+      await this.createExpense.newExpense(dto as any);
+      posted += 1;
+    }
+    return posted;
+  }
+
+  private async buildExpenseDto(row: PreviewRow) {
+    const values = row.values;
+    const amount = this.getTransactionAmount(values);
+    if (!amount) {
+      return null;
+    }
+    const expenseAccount = await this.accountModel()
+      .query()
+      .findOne({ slug: values.defaultExpenseAccountSlug });
+    const paymentAccount = await this.resolvePaymentAccount();
+    if (!expenseAccount || !paymentAccount) {
+      return null;
+    }
+    return {
+      referenceNo: (values.billNo as string) || undefined,
+      paymentDate:
+        (values.paymentDate as string) || (values.billDate as string) || undefined,
+      paymentAccountId: paymentAccount.id,
+      description: (values.remarks as string) || (values.itemDescription as string),
+      currencyCode: 'INR',
+      exchangeRate: 1,
+      publish: true,
+      categories: [
+        {
+          index: 1,
+          expenseAccountId: expenseAccount.id,
+          amount,
+          description:
+            (values.itemDescription as string) || (values.remarks as string),
+        },
+      ],
+    };
+  }
+
+  private async resolvePaymentAccount() {
+    const bankAccount = await this.accountModel().query().findOne({
+      accountType: 'bank',
+      active: true,
+      isCashVault: false,
+    });
+    if (bankAccount) {
+      return bankAccount;
+    }
+    return this.accountModel().query().findOne({
+      accountType: 'cash',
+      active: true,
+      isCashVault: false,
+    });
+  }
+
+  private getTransactionAmount(values: Record<string, unknown>): number | null {
+    const directPayment = this.positiveAmount(values.payment);
+    if (directPayment) {
+      return directPayment;
+    }
+    const totalBillValue = this.positiveAmount(values.totalBillValue);
+    if (totalBillValue) {
+      return totalBillValue;
+    }
+    const derived = [
+      values.basicValue,
+      values.gst,
+      values.freightOther,
+      values.gstOnRCM,
+      values.tdsDeducted,
+      values.lateFeeAndInterest,
+    ].reduce<number>(
+      (total, value) => total + (this.positiveAmount(value) || 0),
+      0,
+    );
+    return derived > 0 ? derived : null;
+  }
+
+  private positiveAmount(value: unknown): number | null {
+    const amount = Number(value || 0);
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  }
+
+  private normalizePreviewRow(row: any, index: number): PreviewRow {
+    return {
+      rowNumber: row.rowNumber ?? row.row_number ?? index + 1,
+      values: normalizeValues(row.values || {}),
+      validationErrors: row.validationErrors ?? row.validation_errors ?? null,
+    };
   }
 }

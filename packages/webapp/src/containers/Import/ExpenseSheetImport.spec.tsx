@@ -16,6 +16,8 @@ describe('ExpenseSheetImport', () => {
     expect(hooksSource).toContain('/expense-sheet-imports');
     expect(pageSource).toContain('INR');
     expect(pageSource).toContain('row.rowNumber ?? row.row_number');
+    expect(pageSource).toContain('row.validationErrors ?? row.validation_errors');
+    expect(pageSource).toContain('setPreviewRows((response.rows || []).map(normalizePreviewRow))');
     expect(pageSource).not.toContain('plaid');
     expect(pageSource).not.toContain('Plaid');
   });

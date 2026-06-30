@@ -1,6 +1,23 @@
 import { ExpenseSheetImportApplication } from './ExpenseSheetImport.application';
 
 describe('ExpenseSheetImportApplication', () => {
+  it('normalizes FormData uploadedByUserId values before creating the import', async () => {
+    const commitService = {
+      upload: jest.fn().mockResolvedValue({ id: 1 }),
+    };
+    const app = new ExpenseSheetImportApplication(
+      commitService as any,
+      {} as any,
+    );
+
+    await app.upload({
+      sourceFilename: 'expense-sheet.tsv',
+      uploadedByUserId: '12' as any,
+    });
+
+    expect(commitService.upload).toHaveBeenCalledWith('expense-sheet.tsv', 12);
+  });
+
   it('adds the current business default expense account to preview rows', async () => {
     const commitService = {
       previewRows: jest.fn().mockReturnValue([{ rowNumber: 1 }]),

@@ -32,6 +32,12 @@ const sampleRows = JSON.stringify(
   2,
 );
 
+const normalizePreviewRow = (row, index) => ({
+  rowNumber: row.rowNumber ?? row.row_number ?? index + 1,
+  values: row.values || {},
+  validationErrors: row.validationErrors ?? row.validation_errors ?? null,
+});
+
 export function ExpenseSheetImport() {
   const [filename, setFilename] = useState('expense-sheet.xlsx');
   const [file, setFile] = useState(null);
@@ -48,7 +54,8 @@ export function ExpenseSheetImport() {
   });
   const mapping = useExpenseSheetImportMapping();
   const preview = useExpenseSheetImportPreview({
-    onSuccess: (response) => setPreviewRows(response.rows || []),
+    onSuccess: (response) =>
+      setPreviewRows((response.rows || []).map(normalizePreviewRow)),
   });
   const commit = useExpenseSheetImportCommit();
 
@@ -94,7 +101,7 @@ export function ExpenseSheetImport() {
           <FormGroup label={<T id="expense_sheet_import.title" />}>
             <InputGroup
               type="file"
-              inputProps={{ accept: '.xlsx,.xls,.csv' }}
+              inputProps={{ accept: '.xlsx,.xls,.csv,.tsv' }}
               onChange={(event) => {
                 const nextFile = event.currentTarget.files?.[0] || null;
                 setFile(nextFile);
@@ -153,15 +160,19 @@ export function ExpenseSheetImport() {
             </thead>
             <tbody>
               {previewRows.map((row, index) => {
-                const rowNumber = row.rowNumber ?? row.row_number ?? index + 1;
+                const normalizedRow = normalizePreviewRow(row, index);
 
                 return (
-                  <tr key={rowNumber}>
-                    <td>{rowNumber}</td>
-                    <td>{row.values?.currencyCode || 'INR'}</td>
+                  <tr key={normalizedRow.rowNumber}>
+                    <td>{normalizedRow.rowNumber}</td>
                     <td>
-                      {row.validationErrors ? (
-                        <pre>{JSON.stringify(row.validationErrors)}</pre>
+                      {normalizedRow.values.currencyCode ||
+                        normalizedRow.values.currency_code ||
+                        'INR'}
+                    </td>
+                    <td>
+                      {normalizedRow.validationErrors ? (
+                        <pre>{JSON.stringify(normalizedRow.validationErrors)}</pre>
                       ) : (
                         <T id="expense_sheet_import.valid" />
                       )}

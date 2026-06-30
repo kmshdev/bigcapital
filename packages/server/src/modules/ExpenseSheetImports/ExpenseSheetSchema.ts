@@ -1,4 +1,6 @@
 const cleanHeader = (header: string) => header.replace(/\s+/g, ' ').trim();
+const normalizeHeaderKey = (header: string) =>
+  cleanHeader(header).replace(/[^a-z0-9]/gi, '').toLowerCase();
 
 export const APPROVED_EXPENSE_SHEET_COLUMNS = [
   { header: "Vendor's Name", field: 'vendorName', type: 'string' },
@@ -22,14 +24,17 @@ export const APPROVED_EXPENSE_SHEET_COLUMNS = [
 type ExpenseSheetColumn = (typeof APPROVED_EXPENSE_SHEET_COLUMNS)[number];
 
 const columnsByHeader = new Map<string, ExpenseSheetColumn>(
-  APPROVED_EXPENSE_SHEET_COLUMNS.map((column) => [column.header, column]),
+  APPROVED_EXPENSE_SHEET_COLUMNS.flatMap((column) => [
+    [normalizeHeaderKey(column.header), column],
+    [normalizeHeaderKey(column.field), column],
+  ]),
 );
 
 export function mapExpenseSheetHeaders(headers: string[]) {
   return headers.reduce(
     (result, rawHeader) => {
       const header = cleanHeader(rawHeader);
-      const column = columnsByHeader.get(header);
+      const column = columnsByHeader.get(normalizeHeaderKey(rawHeader));
       if (column) {
         result.mapping[header] = column.field;
       } else {
@@ -45,5 +50,5 @@ export function mapExpenseSheetHeaders(headers: string[]) {
 }
 
 export function getExpenseSheetColumn(header: string) {
-  return columnsByHeader.get(cleanHeader(header));
+  return columnsByHeader.get(normalizeHeaderKey(header));
 }

@@ -1,5 +1,6 @@
 import {
   APPROVED_EXPENSE_SHEET_COLUMNS,
+  getExpenseSheetColumn,
   mapExpenseSheetHeaders,
 } from './ExpenseSheetSchema';
 
@@ -42,5 +43,17 @@ describe('ExpenseSheetSchema', () => {
       },
       unsupportedHeaders: ['Unknown'],
     });
+  });
+
+  it('matches uploaded row keys after response serialization changes header casing', () => {
+    expect(getExpenseSheetColumn('bill _no')?.field).toBe('billNo');
+    expect(getExpenseSheetColumn('basic _value')?.field).toBe('basicValue');
+    expect(getExpenseSheetColumn('g_s_t')?.field).toBe('gst');
+    expect(getExpenseSheetColumn('freight\t_other')?.field).toBe(
+      'freightOther',
+    );
+    expect(getExpenseSheetColumn('balance _payable\t')?.field).toBe(
+      'balancePayable',
+    );
   });
 });

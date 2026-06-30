@@ -17,16 +17,19 @@ export class ExpenseSheetImportApplication {
     private readonly tenancyContext: TenancyContext,
   ) {}
 
-  public upload(body: { sourceFilename?: string; uploadedByUserId?: number }) {
+  public upload(body: {
+    sourceFilename?: string;
+    uploadedByUserId?: number | string;
+  }) {
     return this.commitService.upload(
       body.sourceFilename || 'expense-sheet.xlsx',
-      body.uploadedByUserId,
+      this.normalizeUploadedByUserId(body.uploadedByUserId),
     );
   }
 
   public async uploadFromFile(
     file: Express.Multer.File,
-    body: { uploadedByUserId?: number } = {},
+    body: { uploadedByUserId?: number | string } = {},
   ) {
     try {
       const buffer = file.buffer || (await readImportFile(file.filename));
@@ -75,5 +78,13 @@ export class ExpenseSheetImportApplication {
 
   public commit(importId: number, body: { rows: any[] }) {
     return this.commitService.commitRows(Number(importId), body.rows || []);
+  }
+
+  private normalizeUploadedByUserId(uploadedByUserId?: number | string) {
+    if (uploadedByUserId === undefined || uploadedByUserId === null) {
+      return undefined;
+    }
+    const normalized = Number(uploadedByUserId);
+    return Number.isInteger(normalized) ? normalized : undefined;
   }
 }

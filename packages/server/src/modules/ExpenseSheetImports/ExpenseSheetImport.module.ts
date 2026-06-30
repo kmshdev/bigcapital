@@ -7,14 +7,18 @@ import { ExpenseSheetImportCommitService } from './ExpenseSheetImportCommit.serv
 import { ExpenseSheetImportApplication } from './ExpenseSheetImport.application';
 import { ExpenseSheetImportController } from './ExpenseSheetImport.controller';
 import { ExpenseSheetImportResource } from './ExpenseSheetImportResource';
+import { Account } from '../Accounts/models/Account.model';
+import { ExpensesModule } from '../Expenses/Expenses.module';
+import { TenancyModule } from '../Tenancy/Tenancy.module';
 
 const models = [
   RegisterTenancyModel(ExpenseSheetImport),
   RegisterTenancyModel(ExpenseSheetRow),
+  RegisterTenancyModel(Account),
 ];
 
 @Module({
-  imports: [...models, ImportModule],
+  imports: [...models, ImportModule, ExpensesModule, TenancyModule],
   controllers: [ExpenseSheetImportController],
   providers: [
     ExpenseSheetImportCommitService,
