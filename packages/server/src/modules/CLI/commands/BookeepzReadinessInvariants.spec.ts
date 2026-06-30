@@ -1,8 +1,10 @@
+import * as bcrypt from 'bcrypt';
 import {
   evaluateAccountInvariants,
   evaluateDesignatedAdmins,
   evaluateTenantInvariants,
 } from './BookeepzReadinessInvariants';
+import { evaluateCredentialMatches } from './BookeepzReadinessDatabase';
 
 describe('BookeepzReadinessInvariants', () => {
   it('passes tenant invariants for the four Bookeepz companies', () => {
@@ -126,5 +128,66 @@ describe('BookeepzReadinessInvariants', () => {
     });
 
     expect(result.failures).toEqual([]);
+  });
+});
+
+describe('BookeepzReadinessDatabase credential evaluation', () => {
+  it('returns bcrypt match booleans without returning passwords or hashes', async () => {
+    const result = await evaluateCredentialMatches({
+      organizationId: 'risingstone_infra_pvt_ltd',
+      loginPasswords: {
+        'adminF0@bookeepz.net': 'login-0',
+        'adminF1@bookeepz.net': 'login-1',
+        'acca0@bookeepz.net': 'login-2',
+      },
+      cashVaultPasswords: {
+        'adminF0@bookeepz.net': 'cash-0',
+        'adminF1@bookeepz.net': 'cash-1',
+        'acca0@bookeepz.net': 'cash-2',
+      },
+      systemUsers: [
+        {
+          id: 10,
+          email: 'adminF0@bookeepz.net',
+          password: await bcrypt.hash('login-0', 4),
+        },
+        {
+          id: 11,
+          email: 'adminF1@bookeepz.net',
+          password: await bcrypt.hash('login-1', 4),
+        },
+        {
+          id: 12,
+          email: 'acca0@bookeepz.net',
+          password: await bcrypt.hash('login-2', 4),
+        },
+      ],
+      cashVaultCredentials: [
+        {
+          userId: 10,
+          email: 'adminF0@bookeepz.net',
+          passwordHash: await bcrypt.hash('cash-0', 4),
+        },
+        {
+          userId: 11,
+          email: 'adminF1@bookeepz.net',
+          passwordHash: await bcrypt.hash('cash-1', 4),
+        },
+        {
+          userId: 12,
+          email: 'acca0@bookeepz.net',
+          passwordHash: await bcrypt.hash('cash-2', 4),
+        },
+      ],
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.matches['adminF0@bookeepz.net']).toEqual({
+      loginPassword: true,
+      cashVaultPassword: true,
+    });
+    expect(JSON.stringify(result)).not.toContain('login-0');
+    expect(JSON.stringify(result)).not.toContain('cash-0');
+    expect(JSON.stringify(result)).not.toContain('$2');
   });
 });
