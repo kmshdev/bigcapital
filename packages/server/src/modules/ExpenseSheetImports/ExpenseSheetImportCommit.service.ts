@@ -129,23 +129,38 @@ export class ExpenseSheetImportCommitService {
   }
 
   public async commitRows(importId: number, rows: PreviewRow[]) {
-    await this.assertImportCanCommit(importId);
-    const normalizedRows = rows.map((row, index) => this.normalizePreviewRow(row, index));
-    const validRows = normalizedRows.filter((row) => !row.validationErrors);
-    const committedRows = await this.insertCommittedRows(importId, validRows);
-    let postedExpenses = 0;
-    postedExpenses = await this.postExpenses(committedRows);
-    await this.importModel().query().patchAndFetchById(importId, {
-      status: 'committed',
-    });
-    const result: Record<string, number> = {
-      committed: committedRows.length,
-      rejected: normalizedRows.length - validRows.length,
-    };
-    if (this.accountModel && this.createExpense) {
-      result.postedExpenses = postedExpenses;
+    await this.claimImportForCommit(importId);
+
+    try {
+      const normalizedRows = rows.map((row, index) =>
+        this.normalizePreviewRow(row, index),
+      );
+      const validRows = normalizedRows.filter((row) => !row.validationErrors);
+      const committedRows = await this.insertCommittedRows(importId, validRows);
+      const postedExpenses = await this.postExpenses(committedRows);
+
+      await this.importModel().query().patchAndFetchById(importId, {
+        status: 'committed',
+      });
+
+      const result: Record<string, number> = {
+        committed: committedRows.length,
+        rejected: normalizedRows.length - validRows.length,
+      };
+      if (this.accountModel && this.createExpense) {
+        result.postedExpenses = postedExpenses;
+      }
+      return result;
+    } catch (error) {
+      try {
+        await this.importModel().query().patchAndFetchById(importId, {
+          status: 'failed',
+        });
+      } catch {
+        // Preserve the original commit failure.
+      }
+      throw error;
     }
-    return result;
   }
 
   public async upload(sourceFilename: string, uploadedByUserId?: number) {
@@ -158,14 +173,22 @@ export class ExpenseSheetImportCommitService {
     });
   }
 
-  private async assertImportCanCommit(importId: number) {
+  private async claimImportForCommit(importId: number) {
+    const claimed = await this.importModel()
+      .query()
+      .where({ id: importId })
+      .whereNotIn('status', ['committing', 'committed', 'failed'])
+      .patch({ status: 'committing' });
+
+    if (claimed > 0) {
+      return;
+    }
+
     const expenseSheetImport = await this.importModel().query().findById(importId);
     if (!expenseSheetImport) {
       throw new Error('expense_sheet_import_not_found');
     }
-    if (expenseSheetImport.status === 'committed') {
-      throw new Error('expense_sheet_import_already_committed');
-    }
+    throw new Error('expense_sheet_import_already_committed');
   }
 
   private async insertCommittedRows(
