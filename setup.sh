@@ -101,11 +101,12 @@ function askForAction() {
         echo "   6) Logs"
         echo "   7) Build local app images"
         echo "   8) Start with local app images"
-        echo "   9) Exit"
+        echo "   9) Readiness check"
+        echo "   10) Exit"
         echo
         read -p "Action [2]: " ACTION
 
-        until [[ -z "$ACTION" || "$ACTION" =~ ^[1-9]$ ]]; do
+        until [[ -z "$ACTION" || "$ACTION" =~ ^([1-9]|10)$ ]]; do
             echo "$ACTION: invalid selection."
             read -p "Action [2]: " ACTION
         done
@@ -149,7 +150,10 @@ function askForAction() {
     then
         startLocalServices
         askForAction
-    elif [ "$ACTION" == "9" ]
+    elif [ "$ACTION" == "9" ] || [ "$DEFAULT_ACTION" == "readiness" ]
+    then
+        runBookeepzReadiness
+    elif [ "$ACTION" == "10" ]
     then
         exit 0
     else
@@ -224,6 +228,24 @@ function bootstrapLocalBookeepzData() {
     docker exec -u root "$api_container_id" chmod 600 /app/.user.env || exit 1
     docker exec -w /app/packages/server "$api_container_id" node dist/cli.js local:bookeepz:bootstrap || exit 1
     echo "   Bookeepz local users and companies bootstrapped successfully ✅"
+}
+
+function runBookeepzReadiness() {
+    if [ ! -f "$BOOKEEPZ_USER_ENV_PATH" ]; then
+        echo "Bookeepz readiness failed: .user.env was not found"
+        exit 1
+    fi
+
+    local api_container_id=$(docker container ls -q -f "name=bigcapital-server")
+    if [ -z "$api_container_id" ]; then
+        echo "Bookeepz readiness failed: bigcapital-server is not running"
+        exit 1
+    fi
+
+    docker cp "$BOOKEEPZ_USER_ENV_PATH" "$api_container_id:/app/.user.env" || exit 1
+    docker exec -u root "$api_container_id" chown nodejs:nodejs /app/.user.env || exit 1
+    docker exec -u root "$api_container_id" chmod 600 /app/.user.env || exit 1
+    docker exec -w /app/packages/server "$api_container_id" node dist/cli.js local:bookeepz:readiness || exit 1
 }
 
 function startServices() {
