@@ -10,6 +10,12 @@ import {
   USER_PASSWORD_KEYS,
   parseBootstrapSecrets,
 } from './LocalBookeepzBootstrap.command';
+import {
+  buildBookeepzPreferenceSettings,
+  fillMissingMetadataValues,
+  getBookeepzGeneralMetadataDefaults,
+  isBlankPreferenceValue,
+} from './BookeepzPreferenceDefaults';
 
 describe('LocalBookeepzBootstrapCommand contract', () => {
   it('pins the four isolated Risingstone/Mahetel businesses', () => {
@@ -142,5 +148,93 @@ describe('LocalBookeepzBootstrapCommand contract', () => {
     expect(secrets.cashVaultPasswords['adminF0@bookeepz.net']).toBe('cash-0');
     expect(secrets.cashVaultPasswords['adminF1@bookeepz.net']).toBe('cash-1');
     expect(secrets.cashVaultPasswords['acca0@bookeepz.net']).toBe('cash-2');
+  });
+});
+
+describe('Bookeepz preference default helpers', () => {
+  const business = BOOTSTRAP_BUSINESSES[0];
+
+  it('treats null, undefined, and empty strings as missing values', () => {
+    expect(isBlankPreferenceValue(undefined)).toBe(true);
+    expect(isBlankPreferenceValue(null)).toBe(true);
+    expect(isBlankPreferenceValue('')).toBe(true);
+    expect(isBlankPreferenceValue('   ')).toBe(true);
+    expect(isBlankPreferenceValue(false)).toBe(false);
+    expect(isBlankPreferenceValue(0)).toBe(false);
+    expect(isBlankPreferenceValue('cash')).toBe(false);
+  });
+
+  it('builds the General metadata defaults used by the preferences page', () => {
+    expect(getBookeepzGeneralMetadataDefaults(10, business)).toEqual({
+      tenantId: 10,
+      name: 'Risingstone infra pvt ltd',
+      baseCurrency: 'INR',
+      location: 'IN',
+      language: 'en',
+      timezone: 'Asia/Kolkata',
+      dateFormat: 'DD/MM/YY',
+      fiscalYear: 'april',
+    });
+  });
+
+  it('fills only missing metadata values and preserves configured values', () => {
+    const defaults = getBookeepzGeneralMetadataDefaults(10, business);
+
+    expect(
+      fillMissingMetadataValues(
+        {
+          tenantId: 10,
+          name: 'Configured org name',
+          baseCurrency: 'USD',
+          location: '',
+          language: null,
+          timezone: 'Europe/London',
+          dateFormat: undefined,
+          fiscalYear: 'january',
+        },
+        defaults,
+      ),
+    ).toEqual({
+      tenantId: 10,
+      name: 'Configured org name',
+      baseCurrency: 'USD',
+      location: 'IN',
+      language: 'en',
+      timezone: 'Europe/London',
+      dateFormat: 'DD/MM/YY',
+      fiscalYear: 'january',
+    });
+  });
+
+  it('builds only the semantically valid Accountant and Items settings', () => {
+    const settings = buildBookeepzPreferenceSettings({
+      expenseAccountId: 31,
+      paymentAccountId: 41,
+    });
+
+    expect(settings).toEqual([
+      { group: 'organization', key: 'accounting_basis', value: 'accrual' },
+      { group: 'accounts', key: 'account_code_unique', value: true },
+      { group: 'accounts', key: 'account_code_required', value: false },
+      { group: 'bill_payments', key: 'withdrawal_account', value: 41 },
+      { group: 'items', key: 'preferred_cost_account', value: 31 },
+    ]);
+    expect(settings).not.toContainEqual(
+      expect.objectContaining({
+        group: 'items',
+        key: 'preferred_sell_account',
+      }),
+    );
+    expect(settings).not.toContainEqual(
+      expect.objectContaining({
+        group: 'items',
+        key: 'preferred_inventory_account',
+      }),
+    );
+    expect(settings).not.toContainEqual(
+      expect.objectContaining({
+        group: 'payment_receives',
+      }),
+    );
   });
 });
