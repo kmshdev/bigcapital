@@ -1,9 +1,12 @@
 // @ts-nocheck
 import React from 'react';
+import { Ability } from '@casl/ability';
 import { useAbility } from '@casl/react';
 import { AbilityContext } from '@/components';
 
-export const useAbilityContext = () => useAbility(AbilityContext);
+const emptyAbility = new Ability([]);
+
+export const useAbilityContext = () => useAbility(AbilityContext) ?? emptyAbility;
 
 /**
  *

@@ -7,12 +7,11 @@ import { TransitionGroup, CSSTransition } from 'react-transition-group';
 import { Spinner } from '@blueprintjs/core';
 
 import authenticationRoutes from '@/routes/authentication';
-import { Box, Icon, FormattedMessage as T } from '@/components';
+import { Box } from '@/components';
 import { AuthMetaBootProvider } from './AuthMetaBoot';
 
 import '@/style/pages/Authentication/Auth.scss';
 import { useIsDarkMode } from '@/hooks/useDarkMode';
-import { BigcapitalAlt } from '@/components/Icons/BigcapitalAlt';
 
 export function Authentication() {
   const isDarkMode = useIsDarkMode();
@@ -22,15 +21,7 @@ export function Authentication() {
       <AuthPage>
         <AuthInsider>
           <AuthLogo>
-            {isDarkMode ? (
-              <BigcapitalAlt
-                color={'rgba(255, 255, 255, 0.6)'}
-                height={37}
-                width={214}
-              />
-            ) : (
-              <Icon icon="bigcapital" height={37} width={214} />
-            )}
+            <AuthWordmark $isDarkMode={isDarkMode}>Bookeepz</AuthWordmark>
           </AuthLogo>
 
           <AuthMetaBootProvider>
@@ -87,4 +78,12 @@ const AuthInsider = styled.div`
 const AuthLogo = styled.div`
   text-align: center;
   margin-bottom: 40px;
+`;
+
+const AuthWordmark = styled.div<{ $isDarkMode: boolean }>`
+  color: ${({ $isDarkMode }) =>
+    $isDarkMode ? 'rgba(255, 255, 255, 0.72)' : '#1c2127'};
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 37px;
 `;

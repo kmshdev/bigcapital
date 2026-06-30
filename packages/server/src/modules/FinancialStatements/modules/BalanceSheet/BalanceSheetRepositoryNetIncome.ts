@@ -94,9 +94,8 @@ export const BalanceSheetRepositoryNetIncome = <
      * Initialize income accounts.
      */
     public initIncomeAccounts = () => {
-      const incomeAccounts = this.accountsByParentType.get(
-        ACCOUNT_PARENT_TYPE.INCOME,
-      );
+      const incomeAccounts =
+        this.accountsByParentType.get(ACCOUNT_PARENT_TYPE.INCOME) ?? [];
       const incomeAccountsIds = incomeAccounts.map((a) => a.id);
 
       this.incomeAccounts = incomeAccounts;
@@ -107,9 +106,8 @@ export const BalanceSheetRepositoryNetIncome = <
      * Initialize expense accounts.
      */
     public initExpenseAccounts = () => {
-      const expensesAccounts = this.accountsByParentType.get(
-        ACCOUNT_PARENT_TYPE.EXPENSE,
-      );
+      const expensesAccounts =
+        this.accountsByParentType.get(ACCOUNT_PARENT_TYPE.EXPENSE) ?? [];
       const expensesAccountsIds = expensesAccounts.map((a) => a.id);
 
       this.expenseAccounts = expensesAccounts;

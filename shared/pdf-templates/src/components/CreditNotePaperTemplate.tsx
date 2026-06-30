@@ -87,7 +87,7 @@ export function CreditNotePaperTemplate({
   secondaryColor,
 
   // # Company
-  companyName = 'Bigcapital Technology, Inc.',
+  companyName = 'Bookeepz Technology, Inc.',
 
   showCompanyLogo = true,
   companyLogoUri = '',

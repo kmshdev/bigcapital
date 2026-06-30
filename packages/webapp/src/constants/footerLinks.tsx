@@ -19,7 +19,7 @@ export const getFooterLinks = () => [
     link: 'https://docs.bigcapital.ly',
   },
   {
-    title: 'Bigcapital',
+    title: 'Bookeepz',
     link: 'http://bigcapital.ly',
   },
 ];
