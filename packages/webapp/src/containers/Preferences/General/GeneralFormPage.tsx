@@ -12,7 +12,7 @@ import { PreferencesGeneralSchema } from './General.schema';
 import { useGeneralFormContext } from './GeneralFormProvider';
 import { withDashboardActions } from '@/containers/Dashboard/withDashboardActions';
 
-import { compose, transformToForm } from '@/utils';
+import { compose, transformToForm, transfromToSnakeCase } from '@/utils';
 
 const defaultValues = {
   name: '',
@@ -41,9 +41,10 @@ function GeneralFormPageInner({
   }, [changePreferencesPageTitle]);
 
   // Initial values.
+  const metadata = transfromToSnakeCase(organization.metadata ?? {});
   const initialValues = {
     ...defaultValues,
-    ...transformToForm(organization.metadata, defaultValues),
+    ...transformToForm(metadata, defaultValues),
   };
   // Handle the form submit.
   const handleFormSubmit = (values, { setSubmitting, resetForm }) => {

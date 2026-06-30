@@ -5,6 +5,7 @@ import {
   UseMutationOptions,
   UseQueryOptions,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import type { SaveSettingsBody, SettingsResponse } from '@bigcapital/sdk-ts';
 import {
   fetchSettings,
@@ -25,6 +26,7 @@ import {
 } from '@bigcapital/sdk-ts';
 import { useApiFetcher } from '../../useRequest';
 import { settingsKeys } from './query-keys';
+import { useSetSettings } from '@/hooks/state/settings';
 
 export function useSaveSettings(
   props?: UseMutationOptions<void, Error, SaveSettingsBody>,
@@ -45,12 +47,21 @@ export function useSettings(
   props?: Omit<UseQueryOptions<SettingsResponse>, 'queryKey' | 'queryFn'>,
 ) {
   const fetcher = useApiFetcher();
+  const setSettings = useSetSettings();
 
-  return useQuery({
+  const query = useQuery({
     ...props,
     queryKey: settingsKeys.all(),
     queryFn: () => fetchSettings(fetcher),
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setSettings(query.data);
+    }
+  }, [query.data, setSettings]);
+
+  return query;
 }
 
 export function useSettingsInvoices(
@@ -116,12 +127,21 @@ export function useSettingsItems(
   props?: Omit<UseQueryOptions<SettingsResponse>, 'queryKey' | 'queryFn'>,
 ) {
   const fetcher = useApiFetcher();
+  const setSettings = useSetSettings();
 
-  return useQuery({
+  const query = useQuery({
     ...props,
     queryKey: settingsKeys.items(),
     queryFn: () => fetchSettingsItems(fetcher),
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setSettings(query.data);
+    }
+  }, [query.data, setSettings]);
+
+  return query;
 }
 
 export function useSettingCashFlow(
