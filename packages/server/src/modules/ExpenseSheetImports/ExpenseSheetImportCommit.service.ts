@@ -17,6 +17,11 @@ type PreviewRowsOptions = {
   defaultExpenseAccountSlug?: string;
 };
 
+type CommittedExpenseSheetRow = {
+  id: number;
+  row: PreviewRow;
+};
+
 const moneyPattern = /^-?\d+(\.\d{1,2})?$/;
 
 const valueKeyAliases = {
@@ -124,25 +129,17 @@ export class ExpenseSheetImportCommitService {
   }
 
   public async commitRows(importId: number, rows: PreviewRow[]) {
+    await this.assertImportCanCommit(importId);
     const normalizedRows = rows.map((row, index) => this.normalizePreviewRow(row, index));
     const validRows = normalizedRows.filter((row) => !row.validationErrors);
+    const committedRows = await this.insertCommittedRows(importId, validRows);
     let postedExpenses = 0;
-    if (validRows.length > 0) {
-      for (const row of validRows) {
-        await this.rowModel()
-          .query()
-          .insert({
-            importId,
-            rowNumber: row.rowNumber,
-            values: row.values,
-            validationErrors: null,
-            committedTransactionId: null,
-          });
-      }
-      postedExpenses = await this.postExpenses(validRows);
-    }
+    postedExpenses = await this.postExpenses(committedRows);
+    await this.importModel().query().patchAndFetchById(importId, {
+      status: 'committed',
+    });
     const result: Record<string, number> = {
-      committed: validRows.length,
+      committed: committedRows.length,
       rejected: normalizedRows.length - validRows.length,
     };
     if (this.accountModel && this.createExpense) {
@@ -161,17 +158,56 @@ export class ExpenseSheetImportCommitService {
     });
   }
 
-  private async postExpenses(rows: PreviewRow[]) {
+  private async assertImportCanCommit(importId: number) {
+    const expenseSheetImport = await this.importModel().query().findById(importId);
+    if (!expenseSheetImport) {
+      throw new Error('expense_sheet_import_not_found');
+    }
+    if (expenseSheetImport.status === 'committed') {
+      throw new Error('expense_sheet_import_already_committed');
+    }
+  }
+
+  private async insertCommittedRows(
+    importId: number,
+    rows: PreviewRow[],
+  ): Promise<CommittedExpenseSheetRow[]> {
+    const committedRows: CommittedExpenseSheetRow[] = [];
+
+    for (const row of rows) {
+      const insertedRow = await this.rowModel()
+        .query()
+        .insert({
+          importId,
+          rowNumber: row.rowNumber,
+          values: row.values,
+          validationErrors: null,
+          committedTransactionId: null,
+        });
+
+      committedRows.push({
+        id: insertedRow.id,
+        row,
+      });
+    }
+
+    return committedRows;
+  }
+
+  private async postExpenses(rows: CommittedExpenseSheetRow[]) {
     if (!this.accountModel || !this.createExpense) {
       return 0;
     }
     let posted = 0;
     for (const row of rows) {
-      const dto = await this.buildExpenseDto(row);
+      const dto = await this.buildExpenseDto(row.row);
       if (!dto) {
         continue;
       }
-      await this.createExpense.newExpense(dto as any);
+      const expense = await this.createExpense.newExpense(dto as any);
+      await this.rowModel().query().patchAndFetchById(row.id, {
+        committedTransactionId: expense.id,
+      });
       posted += 1;
     }
     return posted;

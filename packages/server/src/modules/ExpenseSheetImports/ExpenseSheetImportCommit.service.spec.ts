@@ -62,9 +62,17 @@ describe('ExpenseSheetImportCommitService', () => {
   });
 
   it('commits only valid rows without partial invalid-row records', async () => {
+    const importQuery = {
+      findById: jest.fn().mockResolvedValue({ id: 5, status: 'uploaded' }),
+      patchAndFetchById: jest.fn().mockResolvedValue({ id: 5, status: 'committed' }),
+    };
+    const importModel = () => ({ query: () => importQuery });
     const insert = jest.fn().mockResolvedValue([{ id: 1 }]);
     const rowModel = () => ({ query: () => ({ insert }) });
-    const service = new ExpenseSheetImportCommitService({} as any, rowModel as any);
+    const service = new ExpenseSheetImportCommitService(
+      importModel as any,
+      rowModel as any,
+    );
 
     await expect(
       service.commitRows(5, [
@@ -85,16 +93,54 @@ describe('ExpenseSheetImportCommitService', () => {
         committedTransactionId: null,
       },
     );
+    expect(importQuery.patchAndFetchById).toHaveBeenCalledWith(5, {
+      status: 'committed',
+    });
+  });
+
+  it('rejects already committed imports without inserting rows or posting expenses', async () => {
+    const importQuery = {
+      findById: jest.fn().mockResolvedValue({ id: 5, status: 'committed' }),
+      patchAndFetchById: jest.fn(),
+    };
+    const importModel = () => ({ query: () => importQuery });
+    const insert = jest.fn();
+    const rowModel = () => ({ query: () => ({ insert }) });
+    const createExpense = {
+      newExpense: jest.fn(),
+    };
+    const service = new ExpenseSheetImportCommitService(
+      importModel as any,
+      rowModel as any,
+      undefined,
+      createExpense as any,
+    );
+
+    await expect(
+      service.commitRows(5, [
+        { rowNumber: 1, values: { billNo: 'B-1' }, validationErrors: null },
+      ]),
+    ).rejects.toThrow('expense_sheet_import_already_committed');
+
+    expect(insert).not.toHaveBeenCalled();
+    expect(createExpense.newExpense).not.toHaveBeenCalled();
+    expect(importQuery.patchAndFetchById).not.toHaveBeenCalled();
   });
 
   it('commits serialized preview rows with MySQL-compatible single-row inserts', async () => {
+    const importQuery = {
+      findById: jest.fn().mockResolvedValue({ id: 5, status: 'uploaded' }),
+      patchAndFetchById: jest.fn().mockResolvedValue({ id: 5, status: 'committed' }),
+    };
+    const importModel = () => ({ query: () => importQuery });
     const insert = jest.fn((payload) => {
       if (Array.isArray(payload)) {
         throw new Error('batch insert only works with Postgresql and SQL Server');
       }
       return Promise.resolve({ id: 1 });
     });
-    const rowModel = () => ({ query: () => ({ insert }) });
+    const patchAndFetchById = jest.fn().mockResolvedValue({});
+    const rowModel = () => ({ query: () => ({ insert, patchAndFetchById }) });
     const query = {
       findOne: jest
         .fn()
@@ -106,7 +152,7 @@ describe('ExpenseSheetImportCommitService', () => {
       newExpense: jest.fn().mockResolvedValue({ id: 77 }),
     };
     const service = new ExpenseSheetImportCommitService(
-      {} as any,
+      importModel as any,
       rowModel as any,
       accountModel as any,
       createExpense as any,
@@ -147,11 +193,23 @@ describe('ExpenseSheetImportCommitService', () => {
         paymentAccountId: 12,
       }),
     );
+    expect(patchAndFetchById).toHaveBeenCalledWith(1, {
+      committedTransactionId: 77,
+    });
+    expect(importQuery.patchAndFetchById).toHaveBeenCalledWith(5, {
+      status: 'committed',
+    });
   });
 
   it('posts valid paid rows into the existing expense flow when account dependencies are available', async () => {
-    const insert = jest.fn().mockResolvedValue([{ id: 1 }]);
-    const rowModel = () => ({ query: () => ({ insert }) });
+    const importQuery = {
+      findById: jest.fn().mockResolvedValue({ id: 5, status: 'uploaded' }),
+      patchAndFetchById: jest.fn().mockResolvedValue({ id: 5, status: 'committed' }),
+    };
+    const importModel = () => ({ query: () => importQuery });
+    const insert = jest.fn().mockResolvedValue({ id: 1 });
+    const patchAndFetchById = jest.fn().mockResolvedValue({});
+    const rowModel = () => ({ query: () => ({ insert, patchAndFetchById }) });
     const query = {
       findOne: jest
         .fn()
@@ -163,7 +221,7 @@ describe('ExpenseSheetImportCommitService', () => {
       newExpense: jest.fn().mockResolvedValue({ id: 77 }),
     };
     const service = new ExpenseSheetImportCommitService(
-      {} as any,
+      importModel as any,
       rowModel as any,
       accountModel as any,
       createExpense as any,
@@ -204,6 +262,94 @@ describe('ExpenseSheetImportCommitService', () => {
           description: 'Cement',
         },
       ],
+    });
+    expect(patchAndFetchById).toHaveBeenCalledWith(1, {
+      committedTransactionId: 77,
+    });
+    expect(importQuery.patchAndFetchById).toHaveBeenCalledWith(5, {
+      status: 'committed',
+    });
+  });
+
+  it('records posted expense ids and marks the import committed', async () => {
+    const importQuery = {
+      findById: jest.fn().mockResolvedValue({ id: 5, status: 'uploaded' }),
+      patchAndFetchById: jest.fn().mockResolvedValue({ id: 5, status: 'committed' }),
+    };
+    const importModel = () => ({ query: () => importQuery });
+    const insertedRows = [{ id: 91 }, { id: 92 }];
+    const insert = jest
+      .fn()
+      .mockResolvedValueOnce(insertedRows[0])
+      .mockResolvedValueOnce(insertedRows[1]);
+    const patchAndFetchById = jest.fn().mockResolvedValue({});
+    const rowModel = () => ({
+      query: () => ({
+        insert,
+        patchAndFetchById,
+      }),
+    });
+    const accountQuery = {
+      findOne: jest
+        .fn()
+        .mockResolvedValueOnce({ id: 31, slug: 'risingstone-main-01' })
+        .mockResolvedValueOnce({ id: 12, accountType: 'bank' })
+        .mockResolvedValueOnce({ id: 31, slug: 'risingstone-main-01' })
+        .mockResolvedValueOnce({ id: 12, accountType: 'bank' }),
+    };
+    const accountModel = () => ({ query: () => accountQuery });
+    const createExpense = {
+      newExpense: jest
+        .fn()
+        .mockResolvedValueOnce({ id: 501 })
+        .mockResolvedValueOnce({ id: 502 }),
+    };
+    const service = new ExpenseSheetImportCommitService(
+      importModel as any,
+      rowModel as any,
+      accountModel as any,
+      createExpense as any,
+    );
+
+    await expect(
+      service.commitRows(5, [
+        {
+          rowNumber: 1,
+          values: {
+            billNo: 'B-1',
+            paymentDate: '2026-06-28',
+            payment: 1200,
+            itemDescription: 'Cement',
+            defaultExpenseAccountSlug: 'risingstone-main-01',
+          },
+          validationErrors: null,
+        },
+        {
+          rowNumber: 2,
+          values: {
+            billNo: 'B-2',
+            paymentDate: '2026-06-29',
+            payment: 900,
+            itemDescription: 'Steel',
+            defaultExpenseAccountSlug: 'risingstone-main-01',
+          },
+          validationErrors: null,
+        },
+      ]),
+    ).resolves.toEqual({
+      committed: 2,
+      rejected: 0,
+      postedExpenses: 2,
+    });
+
+    expect(patchAndFetchById).toHaveBeenCalledWith(91, {
+      committedTransactionId: 501,
+    });
+    expect(patchAndFetchById).toHaveBeenCalledWith(92, {
+      committedTransactionId: 502,
+    });
+    expect(importQuery.patchAndFetchById).toHaveBeenCalledWith(5, {
+      status: 'committed',
     });
   });
 });
