@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Button,
   Card,
+  Classes,
   FormGroup,
   H2,
   H3,
@@ -12,62 +13,113 @@ import {
   NumericInput,
   Spinner,
 } from '@blueprintjs/core';
-import { DashboardInsider, FormattedMessage as T } from '@/components';
+import { FormattedMessage as T } from '@/components';
+import { useCurrentOrganizationName } from '@/hooks/query';
 import {
   useCashVaultAccounts,
-  useCashVaultDesignatedAdmins,
-  useGrantCashVaultUnlock,
-  useRemoveCashVaultDesignation,
-  useReplaceCashVaultDesignatedAdmins,
-  useRevokeCashVaultUnlock,
+  useCashVaultExpenses,
+  useCreateCashVaultExpense,
 } from './hooks';
 
-export function CashVaultManagementPage() {
-  const { data: accounts = [], isLoading } = useCashVaultAccounts();
-  const { data: designatedAdmins = [] } = useCashVaultDesignatedAdmins();
-  const { mutate: removeDesignation, isLoading: isRemoving } =
-    useRemoveCashVaultDesignation();
-  const replaceDesignatedAdmins = useReplaceCashVaultDesignatedAdmins();
-  const grantUnlock = useGrantCashVaultUnlock();
-  const revokeUnlock = useRevokeCashVaultUnlock();
-  const [adminIds, setAdminIds] = useState('');
-  const [unlockUserId, setUnlockUserId] = useState('');
-  const [unlockExpiresAt, setUnlockExpiresAt] = useState('');
-  const [unlockGrantedByUserId, setUnlockGrantedByUserId] = useState('');
-  const [revokeUnlockId, setRevokeUnlockId] = useState('');
-  const [revokeByUserId, setRevokeByUserId] = useState('');
+const defaultExpenseValues = {
+  paymentDate: new Date().toISOString().slice(0, 10),
+  expenseAccountId: '',
+  amount: 0,
+  description: '',
+  referenceNo: '',
+};
 
-  const handleReplaceAdmins = () => {
-    replaceDesignatedAdmins.mutate({
-      userIds: adminIds
-        .split(',')
-        .map((value) => Number(value.trim()))
-        .filter(Boolean),
-      designatedByUserId: Number(unlockGrantedByUserId || revokeByUserId),
-    });
-  };
+const formatCurrency = (amount, currencyCode = 'INR') =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currencyCode,
+  }).format(Number(amount || 0));
 
-  const handleGrantUnlock = () => {
-    grantUnlock.mutate({
-      userId: Number(unlockUserId),
-      grantedByUserId: Number(unlockGrantedByUserId),
-      expiresAt: unlockExpiresAt,
-    });
-  };
+const getLedgerDisplayName = (account) => {
+  if (account.name?.startsWith('TEST_LEDGER_')) {
+    return account.name;
+  }
+  const id = Number(account.id || 0);
+  const number = 100000 + Math.abs((id * 7919) % 900000);
+  return `TEST_LEDGER_${number}`;
+};
 
-  const handleRevokeUnlock = () => {
-    revokeUnlock.mutate({
-      unlockId: Number(revokeUnlockId),
-      revokedByUserId: Number(revokeByUserId),
-    });
+export function CashVaultScopedPage() {
+  const organizationName = useCurrentOrganizationName();
+  const exitVault = () => {
+    window.location.replace('/');
   };
 
   return (
-    <DashboardInsider name="cash-vault-management">
+    <div
+      className="cash-vault-scope"
+      style={{
+        minHeight: '100vh',
+        background: '#151b22',
+        color: '#f5f8fa',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '18px 24px',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        <H2 style={{ margin: 0 }}>{organizationName}</H2>
+        <Button minimal intent={Intent.PRIMARY} onDoubleClick={exitVault}>
+          <T id="cash_vault.exit_scope" />
+        </Button>
+      </div>
+      <CashVaultManagementPage />
+    </div>
+  );
+}
+
+export function CashVaultManagementPage() {
+  const { data: accounts = [], isLoading } = useCashVaultAccounts();
+  const { data: expensesResponse, isLoading: isExpensesLoading } =
+    useCashVaultExpenses();
+  const createExpense = useCreateCashVaultExpense();
+  const [expenseValues, setExpenseValues] = useState(defaultExpenseValues);
+
+  const expenses = expensesResponse?.data || [];
+  const totalExpenses = expenses.reduce(
+    (total, expense) => total + Number(expense.totalAmount || 0),
+    0,
+  );
+
+  const setExpenseValue = (name, value) => {
+    setExpenseValues((previous) => ({ ...previous, [name]: value }));
+  };
+
+  const handleCreateExpense = (event) => {
+    event.preventDefault();
+    createExpense.mutate(
+      {
+        paymentDate: expenseValues.paymentDate,
+        description: expenseValues.description || undefined,
+        referenceNo: expenseValues.referenceNo || undefined,
+        categories: [
+          {
+            expenseAccountId: Number(expenseValues.expenseAccountId),
+            amount: Number(expenseValues.amount),
+            description: expenseValues.description || undefined,
+          },
+        ],
+      },
+      {
+        onSuccess: () => {
+          setExpenseValues(defaultExpenseValues);
+        },
+      },
+    );
+  };
+
+  return (
       <div style={{ padding: 24 }}>
-        <H2>
-          <T id="cash_vault.management.title" />
-        </H2>
         <Card elevation={0}>
           {isLoading ? (
             <Spinner size={24} />
@@ -81,13 +133,12 @@ export function CashVaultManagementPage() {
                   <th>
                     <T id="cash_vault.entry_target" />
                   </th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
                 {accounts.map((account) => (
                   <tr key={account.id}>
-                    <td>{account.name}</td>
+                    <td>{getLedgerDisplayName(account)}</td>
                     <td>
                       {account.cashVaultEntryEnabled ? (
                         <T id="yes" />
@@ -95,21 +146,11 @@ export function CashVaultManagementPage() {
                         <T id="no" />
                       )}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <Button
-                        small
-                        intent={Intent.DANGER}
-                        loading={isRemoving}
-                        onClick={() => removeDesignation(account.id)}
-                      >
-                        <T id="cash_vault.remove_designation" />
-                      </Button>
-                    </td>
                   </tr>
                 ))}
                 {accounts.length === 0 ? (
                   <tr>
-                    <td colSpan={3}>
+                    <td colSpan={2}>
                       <T id="cash_vault.no_accounts" />
                     </td>
                   </tr>
@@ -120,87 +161,132 @@ export function CashVaultManagementPage() {
         </Card>
         <Card elevation={0} style={{ marginTop: 16 }}>
           <H3>
-            <T id="cash_vault.designated_admins" />
+            <T id="cash_vault.add_expense" />
           </H3>
-          <FormGroup label={<T id="cash_vault.designated_admin_ids" />}>
-            <InputGroup
-              value={adminIds}
-              onChange={(event) => setAdminIds(event.target.value)}
-            />
-          </FormGroup>
-          <Button
-            intent={Intent.PRIMARY}
-            loading={replaceDesignatedAdmins.isLoading}
-            onClick={handleReplaceAdmins}
-          >
-            <T id="cash_vault.save_designated_admins" />
-          </Button>
-          <div style={{ marginTop: 12 }}>
-            {designatedAdmins.map((admin) => (
-              <span key={admin.id || admin.userId} style={{ marginRight: 8 }}>
-                #{admin.userId}
-              </span>
-            ))}
-          </div>
+          <form onSubmit={handleCreateExpense}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 16,
+              }}
+            >
+              <FormGroup label={<T id="cash_vault.date" />}>
+                <InputGroup
+                  type="date"
+                  value={expenseValues.paymentDate}
+                  onChange={(event) =>
+                    setExpenseValue('paymentDate', event.target.value)
+                  }
+                />
+              </FormGroup>
+              <FormGroup label={<T id="cash_vault.expense_account_id" />}>
+                <NumericInput
+                  fill
+                  min={1}
+                  value={expenseValues.expenseAccountId}
+                  onValueChange={(value) =>
+                    setExpenseValue('expenseAccountId', value)
+                  }
+                />
+              </FormGroup>
+              <FormGroup label={<T id="cash_vault.amount_inr" />}>
+                <NumericInput
+                  fill
+                  min={0.01}
+                  value={expenseValues.amount}
+                  onValueChange={(value) => setExpenseValue('amount', value)}
+                />
+              </FormGroup>
+              <FormGroup label={<T id="cash_vault.reference" />}>
+                <InputGroup
+                  value={expenseValues.referenceNo}
+                  onChange={(event) =>
+                    setExpenseValue('referenceNo', event.target.value)
+                  }
+                />
+              </FormGroup>
+            </div>
+            <FormGroup label={<T id="cash_vault.description" />}>
+              <InputGroup
+                value={expenseValues.description}
+                onChange={(event) =>
+                  setExpenseValue('description', event.target.value)
+                }
+              />
+            </FormGroup>
+            <Button
+              intent={Intent.PRIMARY}
+              type="submit"
+              loading={createExpense.isLoading}
+            >
+              <T id="cash_vault.save_expense" />
+            </Button>
+          </form>
         </Card>
         <Card elevation={0} style={{ marginTop: 16 }}>
-          <H3>
-            <T id="cash_vault.temporary_unlock" />
-          </H3>
-          <FormGroup label={<T id="cash_vault.unlock_user_id" />}>
-            <NumericInput
-              fill
-              value={unlockUserId}
-              onValueChange={(value) => setUnlockUserId(value)}
-            />
-          </FormGroup>
-          <FormGroup label={<T id="cash_vault.unlock_expires_at" />}>
-            <InputGroup
-              type="datetime-local"
-              value={unlockExpiresAt}
-              onChange={(event) => setUnlockExpiresAt(event.target.value)}
-            />
-          </FormGroup>
-          <FormGroup label={<T id="cash_vault.action_user_id" />}>
-            <NumericInput
-              fill
-              value={unlockGrantedByUserId}
-              onValueChange={(value) => setUnlockGrantedByUserId(value)}
-            />
-          </FormGroup>
-          <Button
-            intent={Intent.PRIMARY}
-            loading={grantUnlock.isLoading}
-            onClick={handleGrantUnlock}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 12,
+            }}
           >
-            <T id="cash_vault.grant_unlock" />
-          </Button>
-          <FormGroup
-            label={<T id="cash_vault.revoke_unlock_id" />}
-            style={{ marginTop: 16 }}
-          >
-            <NumericInput
-              fill
-              value={revokeUnlockId}
-              onValueChange={(value) => setRevokeUnlockId(value)}
-            />
-          </FormGroup>
-          <FormGroup label={<T id="cash_vault.action_user_id" />}>
-            <NumericInput
-              fill
-              value={revokeByUserId}
-              onValueChange={(value) => setRevokeByUserId(value)}
-            />
-          </FormGroup>
-          <Button
-            intent={Intent.DANGER}
-            loading={revokeUnlock.isLoading}
-            onClick={handleRevokeUnlock}
-          >
-            <T id="cash_vault.revoke_unlock" />
-          </Button>
+            <H3 style={{ margin: 0 }}>
+              <T id="cash_vault.expenses" />
+            </H3>
+            <span className={Classes.TEXT_MUTED}>
+              <T id="cash_vault.total_expenses" />:{' '}
+              {formatCurrency(totalExpenses)}
+            </span>
+          </div>
+          {isExpensesLoading ? (
+            <Spinner size={24} />
+          ) : (
+            <HTMLTable striped interactive style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>
+                    <T id="cash_vault.date" />
+                  </th>
+                  <th>
+                    <T id="cash_vault.description" />
+                  </th>
+                  <th>
+                    <T id="cash_vault.reference" />
+                  </th>
+                  <th style={{ textAlign: 'right' }}>
+                    <T id="cash_vault.amount_inr" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((expense) => (
+                  <tr key={expense.id}>
+                    <td>{expense.formattedDate || expense.paymentDate}</td>
+                    <td>{expense.description || '-'}</td>
+                    <td>{expense.referenceNo || '-'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {expense.formattedAmount ||
+                        formatCurrency(
+                          expense.totalAmount,
+                          expense.currencyCode || 'INR',
+                        )}
+                    </td>
+                  </tr>
+                ))}
+                {expenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <T id="cash_vault.no_expenses" />
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </HTMLTable>
+          )}
         </Card>
       </div>
-    </DashboardInsider>
   );
 }

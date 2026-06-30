@@ -13,11 +13,8 @@ const disabledDashboardRoutePrefixes = [
   '/credit-notes',
   '/payments-received',
   '/payment-received',
-  '/bills',
   '/vendor-credits',
-  '/payments-made',
   '/customers',
-  '/vendors',
   '/items',
   '/item/categories',
   '/inventory-adjustments',
@@ -49,17 +46,6 @@ export const getDashboardRoutes = () => [
     hotkey: 'shift+a',
     pageTitle: intl.get('accounts_chart'),
     defaultSearchResource: RESOURCES_TYPES.ACCOUNT,
-    subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
-  },
-  {
-    path: `/cash-vault`,
-    component: lazy(() =>
-      import('@/containers/CashVault').then((m) => ({
-        default: m.CashVaultManagementPage,
-      })),
-    ),
-    breadcrumb: intl.get('cash_vault.management.title'),
-    pageTitle: intl.get('cash_vault.management.title'),
     subscriptionActive: [SUBSCRIPTION_TYPE.MAIN],
   },
   // Accounting.

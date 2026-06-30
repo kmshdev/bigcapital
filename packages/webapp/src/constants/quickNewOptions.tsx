@@ -2,37 +2,28 @@
 import intl from 'react-intl-universal';
 import {
   AbilitySubject,
-  SaleInvoiceAction,
-  CustomerAction,
   VendorAction,
-  ManualJournalAction,
   ExpenseAction,
+  BillAction,
+  PaymentMadeAction,
 } from './abilityOption';
 import { useAbilitiesFilter } from '../hooks';
 
 export const getQuickNewActions = () => [
   {
-    path: 'invoices/new',
-    name: intl.get('sale_invoice'),
-    permission: {
-      subject: AbilitySubject.Invoice,
-      ability: SaleInvoiceAction.Create,
-    },
-  },
-  {
     path: 'bills/new',
     name: intl.get('purchase_invoice'),
     permission: {
-      subject: AbilitySubject.Invoice,
-      ability: SaleInvoiceAction.Create,
+      subject: AbilitySubject.Bill,
+      ability: BillAction.Create,
     },
   },
   {
-    path: 'make-journal-entry',
-    name: intl.get('manual_journal'),
+    path: 'payments-made/new',
+    name: intl.get('payment_made'),
     permission: {
-      subject: AbilitySubject.ManualJournal,
-      ability: ManualJournalAction.Create,
+      subject: AbilitySubject.PaymentMade,
+      ability: PaymentMadeAction.Create,
     },
   },
   {
@@ -44,19 +35,19 @@ export const getQuickNewActions = () => [
     },
   },
   {
-    path: 'customers/new',
-    name: intl.get('customer'),
-    permission: {
-      subject: AbilitySubject.Customer,
-      ability: CustomerAction.Create,
-    },
-  },
-  {
     path: 'vendors/new',
     name: intl.get('vendor'),
     permission: {
       subject: AbilitySubject.Vendor,
-      ability: VendorAction.Vendor,
+      ability: VendorAction.Create,
+    },
+  },
+  {
+    path: 'expenses/sheet-import',
+    name: intl.get('expense_sheet_import.quick_new'),
+    permission: {
+      subject: AbilitySubject.Expense,
+      ability: ExpenseAction.Create,
     },
   },
 ];

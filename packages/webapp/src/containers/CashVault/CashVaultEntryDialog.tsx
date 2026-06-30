@@ -53,6 +53,7 @@ function CashVaultEntryDialogContentInner({ dialogName, closeDialog }) {
           });
           closeDialog(dialogName);
           setValues(defaultValues);
+          window.location.replace('/');
         },
         onError: () => {
           AppToaster.show({

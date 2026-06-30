@@ -16,6 +16,7 @@ import { DialogsName } from '@/constants/dialogs';
 import { withDialogActions } from '@/containers/Dialog/withDialogActions';
 import { AppToaster } from '@/components';
 import { useVerifyCashVaultChallenge } from './hooks';
+import { navigateToCashVaultScope } from './routes';
 
 function CashVaultChallengeDialogContentInner({
   dialogName,
@@ -38,7 +39,7 @@ function CashVaultChallengeDialogContentInner({
           if (purpose === 'entry') {
             openDialog(DialogsName.CashVaultEntry);
           } else {
-            window.location.assign('/cash-vault');
+            navigateToCashVaultScope();
           }
         },
         onError: () => {
