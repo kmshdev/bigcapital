@@ -73,3 +73,68 @@ export function buildBookeepzPreferenceSettings({
     { group: 'items', key: 'preferred_cost_account', value: expenseAccountId },
   ];
 }
+
+function isCashVaultAccount(account: Record<string, any>): boolean {
+  return account.isCashVault === true || account.is_cash_vault === true;
+}
+
+async function findNormalAccountBySlug(
+  knex,
+  slug: string,
+  business: BookeepzBootstrapBusiness,
+  accountLabel: 'expense' | 'payment',
+) {
+  const account = await knex('accounts').where({ slug }).first();
+  if (!account || isCashVaultAccount(account)) {
+    throw new Error(
+      `Bookeepz preference defaults failed for ${business.organizationId}: missing normal ${accountLabel} account ${slug}`,
+    );
+  }
+  return account;
+}
+
+async function upsertMissingSetting(
+  knex,
+  setting: BookeepzPreferenceSetting,
+): Promise<void> {
+  const existing = await knex('settings')
+    .where({ group: setting.group, key: setting.key })
+    .first();
+
+  if (!existing) {
+    await knex('settings').insert(setting);
+    return;
+  }
+  if (isBlankPreferenceValue(existing.value)) {
+    await knex('settings').where({ id: existing.id }).update({
+      value: setting.value,
+    });
+  }
+}
+
+export async function ensureBookeepzPreferenceDefaults(
+  knex,
+  business: BookeepzBootstrapBusiness,
+): Promise<void> {
+  const expenseAccount = await findNormalAccountBySlug(
+    knex,
+    getDefaultExpenseAccountSlug(business),
+    business,
+    'expense',
+  );
+  const paymentAccount = await findNormalAccountBySlug(
+    knex,
+    getDefaultPaymentAccountSlug(business),
+    business,
+    'payment',
+  );
+
+  const settings = buildBookeepzPreferenceSettings({
+    expenseAccountId: expenseAccount.id,
+    paymentAccountId: paymentAccount.id,
+  });
+
+  for (const setting of settings) {
+    await upsertMissingSetting(knex, setting);
+  }
+}

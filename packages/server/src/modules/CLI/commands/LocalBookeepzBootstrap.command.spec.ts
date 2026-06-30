@@ -12,6 +12,7 @@ import {
 } from './LocalBookeepzBootstrap.command';
 import {
   buildBookeepzPreferenceSettings,
+  ensureBookeepzPreferenceDefaults,
   fillMissingMetadataValues,
   getBookeepzGeneralMetadataDefaults,
   isBlankPreferenceValue,
@@ -235,6 +236,189 @@ describe('Bookeepz preference default helpers', () => {
       expect.objectContaining({
         group: 'payment_receives',
       }),
+    );
+  });
+});
+
+function createKnexMock({
+  accounts = [],
+  settings = [],
+}: {
+  accounts?: Record<string, any>[];
+  settings?: Record<string, any>[];
+}) {
+  const rowsByTable = {
+    accounts: accounts.map((row) => ({ ...row })),
+    settings: settings.map((row) => ({ ...row })),
+  };
+  const calls = {
+    inserts: [] as Array<{ table: string; payload: any }>,
+    updates: [] as Array<{ table: string; filter: any; payload: any }>,
+  };
+
+  const matches = (row: Record<string, any>, filter: Record<string, any>) =>
+    Object.entries(filter).every(([key, value]) => row[key] === value);
+
+  const knex: any = (table: 'accounts' | 'settings') => ({
+    where(filter: Record<string, any>) {
+      return {
+        first: async () =>
+          rowsByTable[table].find((row) => matches(row, filter)) || undefined,
+        update: async (payload: Record<string, any>) => {
+          calls.updates.push({ table, filter, payload });
+          let count = 0;
+          rowsByTable[table] = rowsByTable[table].map((row) => {
+            if (!matches(row, filter)) {
+              return row;
+            }
+            count += 1;
+            return { ...row, ...payload };
+          });
+          return count;
+        },
+      };
+    },
+    insert: async (payload: Record<string, any>) => {
+      const row = {
+        id: rowsByTable[table].length + 1,
+        ...payload,
+      };
+      rowsByTable[table].push(row);
+      calls.inserts.push({ table, payload });
+      return [row.id];
+    },
+  });
+
+  return { knex, rowsByTable, calls };
+}
+
+describe('ensureBookeepzPreferenceDefaults', () => {
+  const business = BOOTSTRAP_BUSINESSES[0];
+
+  it('fills missing settings and preserves non-blank configured values', async () => {
+    const { knex, rowsByTable } = createKnexMock({
+      accounts: [
+        {
+          id: 31,
+          slug: 'risingstone_infra_pvt_ltd-main-01',
+          accountType: 'expense',
+          isCashVault: false,
+        },
+        {
+          id: 41,
+          slug: 'risingstone_infra_pvt_ltd-payment-01',
+          accountType: 'bank',
+          isCashVault: false,
+        },
+      ],
+      settings: [
+        {
+          id: 1,
+          group: 'organization',
+          key: 'accounting_basis',
+          value: '',
+        },
+        {
+          id: 2,
+          group: 'accounts',
+          key: 'account_code_unique',
+          value: false,
+        },
+        {
+          id: 3,
+          group: 'items',
+          key: 'preferred_sell_account',
+          value: 999,
+        },
+      ],
+    });
+
+    await ensureBookeepzPreferenceDefaults(knex, business);
+
+    expect(rowsByTable.settings).toEqual(
+      expect.arrayContaining([
+        {
+          id: 1,
+          group: 'organization',
+          key: 'accounting_basis',
+          value: 'accrual',
+        },
+        {
+          id: 2,
+          group: 'accounts',
+          key: 'account_code_unique',
+          value: false,
+        },
+        {
+          id: 3,
+          group: 'items',
+          key: 'preferred_sell_account',
+          value: 999,
+        },
+        {
+          id: 4,
+          group: 'accounts',
+          key: 'account_code_required',
+          value: false,
+        },
+        {
+          id: 5,
+          group: 'bill_payments',
+          key: 'withdrawal_account',
+          value: 41,
+        },
+        {
+          id: 6,
+          group: 'items',
+          key: 'preferred_cost_account',
+          value: 31,
+        },
+      ]),
+    );
+    expect(rowsByTable.settings).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          group: 'items',
+          key: 'preferred_inventory_account',
+        }),
+        expect.objectContaining({
+          group: 'payment_receives',
+        }),
+      ]),
+    );
+  });
+
+  it('fails clearly when the normal Bookeepz expense account is missing', async () => {
+    const { knex } = createKnexMock({
+      accounts: [
+        {
+          id: 41,
+          slug: 'risingstone_infra_pvt_ltd-payment-01',
+          accountType: 'bank',
+          isCashVault: false,
+        },
+      ],
+    });
+
+    await expect(ensureBookeepzPreferenceDefaults(knex, business)).rejects.toThrow(
+      'Bookeepz preference defaults failed for risingstone_infra_pvt_ltd: missing normal expense account risingstone_infra_pvt_ltd-main-01',
+    );
+  });
+
+  it('fails clearly when the normal Bookeepz payment account is missing', async () => {
+    const { knex } = createKnexMock({
+      accounts: [
+        {
+          id: 31,
+          slug: 'risingstone_infra_pvt_ltd-main-01',
+          accountType: 'expense',
+          isCashVault: false,
+        },
+      ],
+    });
+
+    await expect(ensureBookeepzPreferenceDefaults(knex, business)).rejects.toThrow(
+      'Bookeepz preference defaults failed for risingstone_infra_pvt_ltd: missing normal payment account risingstone_infra_pvt_ltd-payment-01',
     );
   });
 });
