@@ -128,6 +128,7 @@ This account gives expense imports and normal payment posting a deterministic no
 
 ### Hidden Cash Vault Entry Account
 
+- persisted `name`: `TEST_LEDGER_<six digits>` from `getCashVaultLedgerName(organizationId)`
 - `accountType`: `cash`
 - `code`: `CASH-VAULT`
 - `slug`: `bookeepz-hidden-cash-vault`
@@ -138,6 +139,19 @@ This account gives expense imports and normal payment posting a deterministic no
 - `cashVaultEntryEnabled`: true
 
 This is one hidden Cash Vault entry account per company. The two admins are designated admins for that account; readiness must not expect two separate Cash Vault accounts for the two admins.
+
+The established vault naming contract is opaque. Readiness must reject stale display names such as `Hidden Cash Vault` and must accept only the `TEST_LEDGER_<six digits>` pattern for user-visible Cash Vault account rows.
+
+Bootstrap-persisted names for the four current companies are deterministic from `organizationId`:
+
+| Company organization id | Persisted Cash Vault name |
+| --- | --- |
+| `risingstone_infra_pvt_ltd` | `TEST_LEDGER_429909` |
+| `risingstone_ventures_pvt_ltd` | `TEST_LEDGER_672803` |
+| `risingstone_projects_pvt_ltd` | `TEST_LEDGER_367207` |
+| `mahetel_pvt_ltd` | `TEST_LEDGER_899151` |
+
+The management API may mask account rows with `getCashVaultLedgerName(account.id)` before returning them to the UI. That means a displayed row can have a different six-digit suffix from the persisted bootstrap name, but it must still match `^TEST_LEDGER_\d{6}$` and must never reveal the old hidden account label.
 
 ## Credential Invariants
 
