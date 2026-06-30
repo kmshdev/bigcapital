@@ -96,9 +96,7 @@ curl -fsS "https://<webapp-domain>/"
 - `BASE_URL` and `GOTENBERG_DOCS_URL` must use the public webapp domain after
   the Railway domain is assigned.
 - `TENANT_DB_NAME_PERFIX` must keep the existing misspelling.
-- Queue code currently reads `QUEUE_HOST` and `QUEUE_PORT`; Redis auth should be
-  verified during first deploy if Railway's managed Redis requires a password on
-  queue connections.
+- Queue and cache connections both use the managed Redis password.
 - The Railway Nginx image entrypoint performs environment substitution for files
   under `/etc/nginx/templates`. `packages/webapp/Dockerfile.railway` restricts
   substitution to `PORT` and `BOOKEEPZ_SERVER_PRIVATE_HOST` so native Nginx

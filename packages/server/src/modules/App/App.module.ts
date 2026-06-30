@@ -148,6 +148,7 @@ import { ExpenseSheetImportModule } from '../ExpenseSheetImports/ExpenseSheetImp
         connection: {
           host: configService.get('queue.host'),
           port: configService.get('queue.port'),
+          password: configService.get('queue.password'),
         },
       }),
       inject: [ConfigService],
@@ -187,6 +188,7 @@ import { ExpenseSheetImportModule } from '../ExpenseSheetImports/ExpenseSheetImp
         config: {
           host: configService.get('redis.host'),
           port: configService.get('redis.port'),
+          password: configService.get('redis.password'),
         },
       }),
       inject: [ConfigService],

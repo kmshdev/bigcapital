@@ -155,6 +155,7 @@ set_var "bookeepz-server" 'REDIS_PORT=${{Redis.REDISPORT}}'
 set_var "bookeepz-server" 'REDIS_PASSWORD=${{Redis.REDISPASSWORD}}'
 set_var "bookeepz-server" 'QUEUE_HOST=${{Redis.REDISHOST}}'
 set_var "bookeepz-server" 'QUEUE_PORT=${{Redis.REDISPORT}}'
+set_var "bookeepz-server" 'QUEUE_PASSWORD=${{Redis.REDISPASSWORD}}'
 set_var "bookeepz-server" 'GOTENBERG_URL=http://${{gotenberg.RAILWAY_PRIVATE_DOMAIN}}:3000'
 set_var "bookeepz-server" "SIGNUP_DISABLED=true"
 set_var "bookeepz-server" "SIGNUP_EMAIL_CONFIRMATION=false"
