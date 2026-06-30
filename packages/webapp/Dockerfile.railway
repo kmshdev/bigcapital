@@ -1,0 +1,30 @@
+# Stage 1: Build the SPA from the workspace root.
+FROM node:18.16.1-alpine AS builder
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9.1.2
+RUN apk add --no-cache python3 build-base chromium
+
+ENV PYTHON=/usr/bin/python3
+
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml lerna.json ./
+COPY --chown=node:node packages/webapp/package.json ./packages/webapp/
+COPY --chown=node:node shared ./shared
+
+RUN pnpm install --frozen-lockfile
+
+COPY --chown=node:node ./packages/webapp ./packages/webapp
+
+RUN pnpm run build:webapp
+
+# Stage 2: Use Railway-compatible Nginx runtime.
+FROM nginx:1.27-alpine
+
+ENV PORT=80
+ENV NGINX_ENVSUBST_FILTER="^(PORT|BOOKEEPZ_SERVER_PRIVATE_HOST)$"
+
+COPY --chown=root:root ./docker/railway/webapp-nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=builder --chown=nginx:nginx /app/packages/webapp/dist /usr/share/nginx/html
+
+EXPOSE 80
