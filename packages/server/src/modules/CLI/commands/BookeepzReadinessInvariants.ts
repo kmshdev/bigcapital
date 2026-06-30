@@ -28,6 +28,10 @@ function bool(value: any) {
   return value === true || value === 1 || value === '1';
 }
 
+function normalizeExpectedValue(actual: any, expected: any) {
+  return typeof expected === 'boolean' ? bool(actual) : actual;
+}
+
 function findBySlug(accounts: AccountRow[], slug: string) {
   return accounts.find((account) => account.slug === slug);
 }
@@ -85,7 +89,8 @@ export function evaluateAccountInvariants(input: {
       predefined: false,
     };
     for (const [key, value] of Object.entries(expected)) {
-      if (expense[key] !== value) {
+      const actual = normalizeExpectedValue(expense[key], value);
+      if (actual !== value) {
         failures.push(
           failure(
             `${business.organizationId}:${expense.slug}:${key}`,
@@ -114,7 +119,7 @@ export function evaluateAccountInvariants(input: {
       isCashVault: false,
     };
     for (const [key, value] of Object.entries(expected)) {
-      const actual = key === 'isCashVault' ? bool(payment[key]) : payment[key];
+      const actual = normalizeExpectedValue(payment[key], value);
       if (actual !== value) {
         failures.push(
           failure(
@@ -156,10 +161,7 @@ export function evaluateAccountInvariants(input: {
       cashVaultEntryEnabled: true,
     };
     for (const [key, value] of Object.entries(expected)) {
-      const actual =
-        key === 'isCashVault' || key === 'cashVaultEntryEnabled'
-          ? bool(cashVault[key])
-          : cashVault[key];
+      const actual = normalizeExpectedValue(cashVault[key], value);
       if (actual !== value) {
         failures.push(
           failure(

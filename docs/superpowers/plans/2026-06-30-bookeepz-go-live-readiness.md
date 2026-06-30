@@ -1832,7 +1832,7 @@ bash -n setup.sh
 
 Expected: PASS with no output.
 
-- [ ] **Step 5: Run local readiness command against Docker**
+- [x] **Step 5: Run local readiness command against Docker**
 
 Prerequisite: local Docker stack is running from rebuilt local images and `.user.env` exists.
 

@@ -11,10 +11,10 @@ describe('BookeepzReadinessApi', () => {
       });
       if (url.endsWith('/api/auth/signin')) {
         return jsonResponse(200, {
-          accessToken: 'secret-token',
-          organizationId: 'risingstone_infra_pvt_ltd',
-          tenantId: 1,
-          userId: 10,
+          access_token: 'secret-token',
+          organization_id: 'risingstone_infra_pvt_ltd',
+          tenant_id: 1,
+          user_id: 10,
         });
       }
       if (url.endsWith('/api/cash-vault/challenge')) {
@@ -57,6 +57,38 @@ describe('BookeepzReadinessApi', () => {
     expect(
       calls.some((call) => call.url.includes('/api/reports/balance-sheet')),
     ).toBe(true);
+  });
+
+  it('returns a readiness failure when the API cannot be reached', async () => {
+    const result = await runBookeepzApiProbes({
+      baseUrl: 'http://127.0.0.1',
+      fetchImpl: jest.fn(async () => {
+        throw new TypeError('fetch failed');
+      }) as any,
+      passwords: {
+        loginPasswords: {
+          'adminF0@bookeepz.net': 'login-0',
+        },
+        cashVaultPasswords: {},
+      },
+    });
+
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        class: 'api_unreachable',
+        operation: 'api.probe',
+        target: 'adminF0@bookeepz.net',
+        message: expect.stringContaining('fetch failed'),
+      }),
+      expect.objectContaining({
+        class: 'api_unreachable',
+        target: 'adminF1@bookeepz.net',
+      }),
+      expect.objectContaining({
+        class: 'api_unreachable',
+        target: 'acca0@bookeepz.net',
+      }),
+    ]);
   });
 });
 

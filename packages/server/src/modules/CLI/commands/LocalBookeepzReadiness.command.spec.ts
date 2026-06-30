@@ -1,6 +1,7 @@
 import {
   formatReadinessSummary,
   LocalBookeepzReadinessCommand,
+  resolveReadinessApiBaseUrl,
 } from './LocalBookeepzReadiness.command';
 
 describe('LocalBookeepzReadinessCommand', () => {
@@ -31,5 +32,16 @@ describe('LocalBookeepzReadinessCommand', () => {
 
   it('can be constructed by Nest command registration', () => {
     expect(LocalBookeepzReadinessCommand).toBeDefined();
+  });
+
+  it('prefers explicit readiness API base URL override', () => {
+    expect(
+      resolveReadinessApiBaseUrl({
+        envBaseUrl: 'http://127.0.0.1',
+        processEnv: {
+          BOOKEEPZ_READINESS_BASE_URL: 'http://127.0.0.1:3000',
+        },
+      }),
+    ).toBe('http://127.0.0.1:3000');
   });
 });

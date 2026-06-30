@@ -27,6 +27,45 @@ async function readJson(response: any) {
   }
 }
 
+function formatRequestError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function requestJson(input: {
+  fetchImpl: FetchLike;
+  url: string;
+  init: any;
+  target: string;
+}) {
+  try {
+    const response = await input.fetchImpl(input.url, input.init);
+    return {
+      response,
+      body: await readJson(response),
+      failure: undefined,
+    };
+  } catch (error) {
+    return {
+      response: undefined,
+      body: {},
+      failure: apiFailure(
+        input.target,
+        `API request failed: ${formatRequestError(error)}.`,
+        'api_unreachable',
+      ),
+    };
+  }
+}
+
+function getSigninSession(body: any) {
+  return {
+    accessToken: body.accessToken ?? body.access_token,
+    organizationId: body.organizationId ?? body.organization_id,
+    tenantId: body.tenantId ?? body.tenant_id,
+    userId: body.userId ?? body.user_id,
+  };
+}
+
 export async function runBookeepzApiProbes(input: {
   baseUrl: string;
   passwords: {
@@ -42,16 +81,28 @@ export async function runBookeepzApiProbes(input: {
 
   for (const user of BOOTSTRAP_USERS) {
     const email = user.email;
-    const signin = await fetchImpl(`${baseUrl}/api/auth/signin`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password: input.passwords.loginPasswords[email],
-      }),
-    } as any);
-    const signinBody = await readJson(signin);
-    if (!signin.ok || !signinBody.accessToken) {
+    const signinResult = await requestJson({
+      fetchImpl,
+      url: `${baseUrl}/api/auth/signin`,
+      target: email,
+      init: {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password: input.passwords.loginPasswords[email],
+        }),
+      } as any,
+    });
+    if (signinResult.failure) {
+      failures.push(signinResult.failure);
+      continue;
+    }
+
+    const signin = signinResult.response;
+    const signinBody = signinResult.body;
+    const session = getSigninSession(signinBody);
+    if (!signin.ok || !session.accessToken) {
       failures.push(
         apiFailure(email, `Signin failed with status ${signin.status}.`),
       );
@@ -60,27 +111,38 @@ export async function runBookeepzApiProbes(input: {
 
     users[email] = {
       signedIn: true,
-      organizationId: signinBody.organizationId,
-      tenantId: signinBody.tenantId,
-      userId: signinBody.userId,
+      organizationId: session.organizationId,
+      tenantId: session.tenantId,
+      userId: session.userId,
     };
 
     for (const purpose of ['entry', 'manage'] as const) {
-      const challenge = await fetchImpl(`${baseUrl}/api/cash-vault/challenge`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${signinBody.accessToken}`,
-          'organization-id': signinBody.organizationId,
-          'x-test-user': email,
-        },
-        body: JSON.stringify({
-          password: input.passwords.cashVaultPasswords[email],
-          purpose,
-        }),
-      } as any);
-      const challengeBody = await readJson(challenge);
       const target = `${email}:${purpose}`;
+      const challengeResult = await requestJson({
+        fetchImpl,
+        url: `${baseUrl}/api/cash-vault/challenge`,
+        target,
+        init: {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${session.accessToken}`,
+            'organization-id': session.organizationId,
+            'x-test-user': email,
+          },
+          body: JSON.stringify({
+            password: input.passwords.cashVaultPasswords[email],
+            purpose,
+          }),
+        } as any,
+      });
+      if (challengeResult.failure) {
+        failures.push(challengeResult.failure);
+        continue;
+      }
+
+      const challenge = challengeResult.response;
+      const challengeBody = challengeResult.body;
       if (email === 'acca0@bookeepz.net' && purpose === 'manage') {
         if (
           challenge.status !== 403 ||
@@ -105,21 +167,30 @@ export async function runBookeepzApiProbes(input: {
 
     if (email === 'adminF0@bookeepz.net') {
       for (const business of BOOTSTRAP_BUSINESSES) {
-        const balanceSheet = await fetchImpl(
-          `${baseUrl}/api/reports/balance-sheet?fromDate=2026-04-01&toDate=2026-06-30`,
-          {
+        const target = `${business.organizationId}:balance-sheet`;
+        const balanceSheetResult = await requestJson({
+          fetchImpl,
+          url: `${baseUrl}/api/reports/balance-sheet?fromDate=2026-04-01&toDate=2026-06-30`,
+          target,
+          init: {
             method: 'GET',
             headers: {
-              authorization: `Bearer ${signinBody.accessToken}`,
+              authorization: `Bearer ${session.accessToken}`,
               'organization-id': business.organizationId,
               accept: 'application/json',
             },
           } as any,
-        );
+        });
+        if (balanceSheetResult.failure) {
+          failures.push(balanceSheetResult.failure);
+          continue;
+        }
+
+        const balanceSheet = balanceSheetResult.response;
         if (!balanceSheet.ok) {
           failures.push(
             apiFailure(
-              `${business.organizationId}:balance-sheet`,
+              target,
               `Balance Sheet failed with status ${balanceSheet.status}.`,
               'report_regression',
             ),

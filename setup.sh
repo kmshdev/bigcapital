@@ -85,6 +85,16 @@ setup_env() {
     fi
 
 }
+
+function returnToMenuIfInteractive() {
+    local DEFAULT_ACTION=$1
+
+    if [ -z "$DEFAULT_ACTION" ];
+    then
+        askForAction
+    fi
+}
+
 # Prints the main actions men.
 function askForAction() {
     local DEFAULT_ACTION=$1
@@ -121,35 +131,35 @@ function askForAction() {
     if [ "$ACTION" == "1" ] || [ "$DEFAULT_ACTION" == "install" ]
     then
         install
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "2" ] || [ "$DEFAULT_ACTION" == "start" ]
     then
         startServices
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "3" ] || [ "$DEFAULT_ACTION" == "stop" ]
     then
         stopServices
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "4" ] || [ "$DEFAULT_ACTION" == "restart" ]
     then
         restartServices
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "5" ]  || [ "$DEFAULT_ACTION" == "upgrade" ]
     then
         upgrade
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "6" ]  || [ "$DEFAULT_ACTION" == "logs" ]
     then
         viewLogs $@
-        askForAction "logs"
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "7" ] || [ "$DEFAULT_ACTION" == "build-local" ]
     then
         buildLocalAppImages
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "8" ] || [ "$DEFAULT_ACTION" == "start-local" ]
     then
         startLocalServices
-        askForAction
+        returnToMenuIfInteractive "$DEFAULT_ACTION"
     elif [ "$ACTION" == "9" ] || [ "$DEFAULT_ACTION" == "readiness" ]
     then
         runBookeepzReadiness
@@ -243,9 +253,26 @@ function runBookeepzReadiness() {
     fi
 
     docker cp "$BOOKEEPZ_USER_ENV_PATH" "$api_container_id:/app/.user.env" || exit 1
+    docker cp "$DOCKER_ENV_EXAMPLE_PATH" "$api_container_id:/app/.env.example" || exit 1
+    docker cp "$DOCKER_ENV_PATH" "$api_container_id:/app/.env" || exit 1
+    docker exec -u root "$api_container_id" mkdir -p /app/packages/server /app/packages/webapp || exit 1
+    docker cp "$CURRENT/packages/server/.env.example" "$api_container_id:/app/packages/server/.env.example" || exit 1
+    docker cp "$CURRENT/packages/webapp/.env.example" "$api_container_id:/app/packages/webapp/.env.example" || exit 1
     docker exec -u root "$api_container_id" chown nodejs:nodejs /app/.user.env || exit 1
     docker exec -u root "$api_container_id" chmod 600 /app/.user.env || exit 1
-    docker exec -w /app/packages/server "$api_container_id" node dist/cli.js local:bookeepz:readiness || exit 1
+    local readiness_base_url=${BOOKEEPZ_READINESS_BASE_URL:-http://127.0.0.1:3000}
+    local readiness_webapp_url=${BOOKEEPZ_READINESS_WEBAPP_BASE_URL:-http://proxy}
+    local readiness_webapp_marker_output=""
+    if docker exec bigcapital-webapp sh -lc "grep -R -q 'Cash Vault management access is limited to the two designated admins.' /usr/share/nginx/html"; then
+        readiness_webapp_marker_output="Cash Vault management access is limited to the two designated admins."
+    fi
+    docker exec \
+        -e "BOOKEEPZ_READINESS_BASE_URL=$readiness_base_url" \
+        -e "BOOKEEPZ_READINESS_RUNTIME_CONTEXT=container" \
+        -e "BOOKEEPZ_READINESS_WEBAPP_BASE_URL=$readiness_webapp_url" \
+        -e "BOOKEEPZ_READINESS_WEBAPP_MARKER_OUTPUT=$readiness_webapp_marker_output" \
+        -w /app/packages/server "$api_container_id" \
+        node dist/cli.js local:bookeepz:readiness || exit 1
 }
 
 function startServices() {

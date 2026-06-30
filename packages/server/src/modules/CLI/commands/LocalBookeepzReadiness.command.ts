@@ -8,7 +8,10 @@ import {
   parseDotEnvContent,
   ReadinessFailure,
 } from './BookeepzReadinessEnv';
-import { checkRuntimeFreshness } from './BookeepzReadinessRuntime';
+import {
+  checkContainerRuntimeFreshness,
+  checkRuntimeFreshness,
+} from './BookeepzReadinessRuntime';
 import { checkBookeepzDatabaseReadiness } from './BookeepzReadinessDatabase';
 import { runBookeepzApiProbes } from './BookeepzReadinessApi';
 import { parseBootstrapSecrets } from './LocalBookeepzBootstrap.command';
@@ -48,6 +51,17 @@ export function formatReadinessSummary(summary: ReadinessSummary) {
   return lines.join('\n');
 }
 
+export function resolveReadinessApiBaseUrl(input: {
+  envBaseUrl?: string;
+  processEnv?: Record<string, string | undefined>;
+}) {
+  return (
+    input.processEnv?.BOOKEEPZ_READINESS_BASE_URL ||
+    input.envBaseUrl ||
+    'http://127.0.0.1'
+  );
+}
+
 @Command({
   name: 'local:bookeepz:readiness',
   description: 'Check local Bookeepz go-live readiness without printing secrets',
@@ -75,7 +89,15 @@ export class LocalBookeepzReadinessCommand extends BaseCommand {
       activeRoot: readEnvFile(activeEnvPath),
       userEnv: parseDotEnvContent(userEnvContent),
     });
-    const runtime = await checkRuntimeFreshness({});
+    const runtime =
+      process.env.BOOKEEPZ_READINESS_RUNTIME_CONTEXT === 'container'
+        ? await checkContainerRuntimeFreshness({
+            webappBaseUrl:
+              process.env.BOOKEEPZ_READINESS_WEBAPP_BASE_URL || 'http://proxy',
+            webappMarkerOutput:
+              process.env.BOOKEEPZ_READINESS_WEBAPP_MARKER_OUTPUT,
+          })
+        : await checkRuntimeFreshness({});
     const systemKnex = this.initSystemKnex();
     let database;
     try {
@@ -88,7 +110,10 @@ export class LocalBookeepzReadinessCommand extends BaseCommand {
       await systemKnex.destroy?.();
     }
     const api = await runBookeepzApiProbes({
-      baseUrl: env.runtime.baseUrl || 'http://127.0.0.1',
+      baseUrl: resolveReadinessApiBaseUrl({
+        envBaseUrl: env.runtime.baseUrl,
+        processEnv: process.env,
+      }),
       passwords: parseBootstrapSecrets(userEnvContent),
     });
 

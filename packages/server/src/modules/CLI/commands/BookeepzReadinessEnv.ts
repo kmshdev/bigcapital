@@ -4,6 +4,7 @@ export type ReadinessFailureClass =
   | 'runtime_stale'
   | 'bootstrap_incomplete'
   | 'credential_mismatch'
+  | 'api_unreachable'
   | 'access_policy_mismatch'
   | 'report_regression';
 
