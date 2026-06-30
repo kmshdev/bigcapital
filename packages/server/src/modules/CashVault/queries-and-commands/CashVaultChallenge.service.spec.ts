@@ -1,3 +1,4 @@
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { CashVaultChallengeService } from './CashVaultChallenge.service';
 
 describe('CashVaultChallengeService', () => {
@@ -54,13 +55,14 @@ describe('CashVaultChallengeService', () => {
       unlocks as any,
     );
 
-    await expect(
-      service.verifyChallenge({
-        userId: 31,
-        password: 'wrong-password',
-        purpose: 'entry',
-      }),
-    ).rejects.toThrow('cash_vault_challenge_invalid');
+    const challenge = service.verifyChallenge({
+      userId: 31,
+      password: 'wrong-password',
+      purpose: 'entry',
+    });
+
+    await expect(challenge).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(challenge).rejects.toThrow('cash_vault_challenge_invalid');
   });
 
   it('creates a manage unlock for a designated admin management challenge', async () => {
@@ -98,12 +100,15 @@ describe('CashVaultChallengeService', () => {
       unlocks as any,
     );
 
-    await expect(
-      service.verifyChallenge({
-        userId: 45,
-        password: 'cash-password',
-        purpose: 'manage',
-      }),
-    ).rejects.toThrow('cash_vault_unlock_user_not_designated');
+    const challenge = service.verifyChallenge({
+      userId: 45,
+      password: 'cash-password',
+      purpose: 'manage',
+    });
+
+    await expect(challenge).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(challenge).rejects.toThrow(
+      'cash_vault_unlock_user_not_designated',
+    );
   });
 });
