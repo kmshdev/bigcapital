@@ -1,9 +1,12 @@
 import 'reflect-metadata';
 
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import {
   REQUIRED_PERMISSION_KEY,
   RequiredPermission,
 } from '@/modules/Roles/RequirePermission.decorator';
+import { AuthorizationGuard } from '@/modules/Roles/Authorization.guard';
+import { PermissionGuard } from '@/modules/Roles/Permission.guard';
 import { AbilitySubject } from '@/modules/Roles/Roles.types';
 import { ExpenseAction } from '@/modules/Expenses/Expenses.types';
 import { ExpenseSheetImportController } from './ExpenseSheetImport.controller';
@@ -16,6 +19,12 @@ describe('ExpenseSheetImportController', () => {
       REQUIRED_PERMISSION_KEY,
       ExpenseSheetImportController.prototype[methodName],
     );
+
+  it('applies authorization and permission guards to the controller', () => {
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, ExpenseSheetImportController),
+    ).toEqual([AuthorizationGuard, PermissionGuard]);
+  });
 
   it('exposes upload, mapping, preview, and commit methods through the service', async () => {
     const app = {
