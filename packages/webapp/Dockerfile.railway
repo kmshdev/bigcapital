@@ -22,7 +22,7 @@ RUN pnpm run build:webapp
 FROM nginx:1.27-alpine
 
 ENV PORT=80
-ENV NGINX_ENVSUBST_FILTER="^(PORT|BOOKEEPZ_SERVER_PRIVATE_HOST)$"
+ENV NGINX_ENVSUBST_FILTER="^(PORT|BOOKEEPZ_SERVER_PRIVATE_HOST|BOOKEEPZ_SERVER_PRIVATE_PORT)$"
 
 COPY --chown=root:root ./docker/railway/webapp-nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder --chown=nginx:nginx /app/packages/webapp/dist /usr/share/nginx/html

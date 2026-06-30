@@ -8,7 +8,7 @@ directly.
 | Service | Railway source | Public? | Purpose |
 | --- | --- | --- | --- |
 | `bookeepz-webapp` | repo Dockerfile `packages/webapp/Dockerfile.railway` | Yes | Serves the SPA with Nginx and proxies `/api` to the private server service. |
-| `bookeepz-server` | repo Dockerfile `packages/server/Dockerfile` | No | Nest API on port `3000`. |
+| `bookeepz-server` | repo Dockerfile `packages/server/Dockerfile` | No | Nest API on Railway-injected port `8080`. |
 | `MySQL` | Railway managed database (`railway add --database mysql`) | No | System and tenant schemas. |
 | `Redis` | Railway managed database (`railway add --database redis`) or verified `redis` template | No | Cache and queue backing service. |
 | `gotenberg` | Gotenberg image/template | No | PDF rendering API. |
@@ -92,12 +92,14 @@ curl -fsS "https://<webapp-domain>/"
 ## Deployment Invariants
 
 - `bookeepz-webapp` is the only public browser entrypoint.
-- `bookeepz-server` stays private and listens on port `3000`.
+- `bookeepz-server` stays private and listens on Railway's injected `PORT`
+  (`8080` on the current Railway runtime).
 - `BASE_URL` and `GOTENBERG_DOCS_URL` must use the public webapp domain after
   the Railway domain is assigned.
 - `TENANT_DB_NAME_PERFIX` must keep the existing misspelling.
 - Queue and cache connections both use the managed Redis password.
 - The Railway Nginx image entrypoint performs environment substitution for files
   under `/etc/nginx/templates`. `packages/webapp/Dockerfile.railway` restricts
-  substitution to `PORT` and `BOOKEEPZ_SERVER_PRIVATE_HOST` so native Nginx
-  variables such as `$host` and `$remote_addr` remain intact.
+  substitution to `PORT`, `BOOKEEPZ_SERVER_PRIVATE_HOST`, and
+  `BOOKEEPZ_SERVER_PRIVATE_PORT` so native Nginx variables such as `$host` and
+  `$remote_addr` remain intact.
