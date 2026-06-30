@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CashVaultPasswordVerifierService } from './CashVaultPasswordVerifier.service';
 import { ManageCashVaultUnlockService } from './ManageCashVaultUnlock.service';
 
@@ -27,7 +31,7 @@ export class CashVaultChallengeService {
   }: CashVaultChallengeRequest) {
     const isValid = await this.passwordVerifier.verify(userId, password);
     if (!isValid) {
-      throw new Error('cash_vault_challenge_invalid');
+      throw new UnauthorizedException('cash_vault_challenge_invalid');
     }
 
     if (purpose === 'entry') {
@@ -44,7 +48,7 @@ export class CashVaultChallengeService {
     const isDesignatedAdmin =
       await this.designatedAdmins.isDesignatedAdmin(userId);
     if (!isDesignatedAdmin) {
-      throw new Error('cash_vault_unlock_user_not_designated');
+      throw new ForbiddenException('cash_vault_unlock_user_not_designated');
     }
 
     await this.unlocks.grantUnlock({

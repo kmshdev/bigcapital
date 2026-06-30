@@ -42,9 +42,14 @@ function CashVaultChallengeDialogContentInner({
             navigateToCashVaultScope();
           }
         },
-        onError: () => {
+        onError: (error) => {
+          const message =
+            error?.response?.data?.message ===
+            'cash_vault_unlock_user_not_designated'
+              ? 'Cash Vault management access is limited to the two designated admins.'
+              : 'Cash Vault password was not accepted.';
           AppToaster.show({
-            message: 'Cash Vault password was not accepted.',
+            message,
             intent: Intent.DANGER,
           });
         },
