@@ -23,4 +23,14 @@ describe('CashVaultManagementPage actor context', () => {
     expect(source).toContain('useCurrentOrganizationName');
     expect(source).toContain('TEST_LEDGER_');
   });
+
+  it('prefills the bootstrap expense account and renders save errors', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'CashVaultManagementPage.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('expenseAccountId: 1000');
+    expect(source).toContain('createExpense.isError');
+  });
 });

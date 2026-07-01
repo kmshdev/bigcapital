@@ -23,7 +23,7 @@ import {
 
 const defaultExpenseValues = {
   paymentDate: new Date().toISOString().slice(0, 10),
-  expenseAccountId: '',
+  expenseAccountId: 1000,
   amount: 0,
   description: '',
   referenceNo: '',
@@ -164,6 +164,14 @@ export function CashVaultManagementPage() {
             <T id="cash_vault.add_expense" />
           </H3>
           <form onSubmit={handleCreateExpense}>
+            {createExpense.isError ? (
+              <div className={Classes.INTENT_DANGER} style={{ marginBottom: 12 }}>
+                {createExpense.error?.response?.data?.message ||
+                  createExpense.error?.response?.data?.errors?.[0]?.message ||
+                  createExpense.error?.message ||
+                  'Expense could not be saved.'}
+              </div>
+            ) : null}
             <div
               style={{
                 display: 'grid',
