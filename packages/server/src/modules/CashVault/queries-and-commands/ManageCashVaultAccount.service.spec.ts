@@ -6,6 +6,32 @@ describe('ManageCashVaultAccountService', () => {
       listCashVaultAccounts: jest.fn().mockResolvedValue([
         {
           id: 31,
+          name: 'TEST_LEDGER_429909',
+          isCashVault: true,
+          cashVaultEntryEnabled: true,
+        },
+      ]),
+    };
+    const service = new ManageCashVaultAccountService(
+      accountRepository as any,
+      {} as any,
+    );
+
+    await expect(service.listAccounts()).resolves.toEqual([
+      {
+        id: 31,
+        name: 'TEST_LEDGER_429909',
+        isCashVault: true,
+        cashVaultEntryEnabled: true,
+      },
+    ]);
+  });
+
+  it('masks stale Cash Vault account names', async () => {
+    const accountRepository = {
+      listCashVaultAccounts: jest.fn().mockResolvedValue([
+        {
+          id: 31,
           name: 'Hidden Cash Vault',
           isCashVault: true,
           cashVaultEntryEnabled: true,

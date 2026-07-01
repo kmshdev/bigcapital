@@ -20,7 +20,9 @@ export class ManageCashVaultAccountService {
     const accounts = await this.accountRepository.listCashVaultAccounts();
     return accounts.map((account) => ({
       ...account,
-      name: getCashVaultLedgerName(account.id),
+      name: account.name?.startsWith('TEST_LEDGER_')
+        ? account.name
+        : getCashVaultLedgerName(account.id),
     }));
   }
 
