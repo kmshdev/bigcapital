@@ -63,4 +63,22 @@ describe('CashVaultManagementPage actor context', () => {
     expect(source).toContain('autoFilter');
     expect(source).toContain('writeXlsx');
   });
+
+  it('renders an interactive compact ledger table with color-coded filters', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'CashVaultManagementPage.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('CashVaultExpenseLedgerTable');
+    expect(source).toContain('unhideTotalAmount = false');
+    expect(source).toContain('vaultPalette');
+    expect(source).toContain('filterTone');
+    expect(source).toContain('columnTone');
+    expect(source).toContain('sortState');
+    expect(source).toContain('selectedExpenseIds');
+    expect(source).toContain('alternateColumnStyles');
+    expect(source).toContain('borderLeft');
+    expect(source).not.toContain('<T id="cash_vault.total_expenses" />');
+  });
 });

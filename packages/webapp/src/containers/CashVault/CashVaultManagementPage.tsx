@@ -36,6 +36,46 @@ const defaultFilterValues = {
   description: '',
 };
 
+const vaultPalette = {
+  slateLedger: {
+    surface: '#1c242d',
+    mutedSurface: '#12161c',
+    line: '#2d3642',
+    accent: '#a9b4c0',
+    text: '#f3f6f8',
+  },
+  actionBlue: {
+    surface: '#172642',
+    line: '#2f6fe4',
+    accent: '#8fb5ff',
+    strong: '#2f6fe4',
+  },
+  rupeeGreen: {
+    surface: '#162b22',
+    line: '#36a269',
+    accent: '#87d7a7',
+    strong: '#d9ffe6',
+  },
+};
+
+const filterTone = {
+  date: 'actionBlue',
+  individualIdentifier: 'actionBlue',
+  description: 'slateLedger',
+};
+
+const columnTone = {
+  date: 'slateLedger',
+  individualIdentifier: 'actionBlue',
+  description: 'slateLedger',
+  amount: 'rupeeGreen',
+};
+
+const alternateColumnStyles = [
+  { background: 'rgba(28, 36, 45, 0.92)' },
+  { background: 'rgba(18, 22, 28, 0.92)' },
+];
+
 const formatCurrency = (amount, currencyCode = 'INR') =>
   new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -81,6 +121,29 @@ const normalizeFilterValue = (value) =>
     .trim()
     .toLowerCase();
 
+const getExpenseSortValue = (expense, key) => {
+  if (key === 'date') {
+    return String(getExpenseFilterDate(expense) || '');
+  }
+  if (key === 'individualIdentifier') {
+    return normalizeFilterValue(getExpenseReference(expense));
+  }
+  if (key === 'description') {
+    return normalizeFilterValue(getExpenseDescription(expense));
+  }
+  return Number(getExpenseTotalAmount(expense) || 0);
+};
+
+const getExpenseRowId = (expense, index) =>
+  String(
+    firstPresent(
+      expense.id,
+      expense.expenseId,
+      expense.expense_id,
+      `${getExpenseDate(expense) || 'date'}-${getExpenseReference(expense) || 'ref'}-${index}`,
+    ),
+  );
+
 const downloadFile = (content, filename, type) => {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -101,6 +164,491 @@ const getLedgerDisplayName = (account) => {
   const number = 100000 + Math.abs((id * 7919) % 900000);
   return `TEST_LEDGER_${number}`;
 };
+
+function CashVaultExpenseLedgerTable({
+  expenses,
+  isLoading,
+  filterValues,
+  onFilterValueChange,
+  onClearFilters,
+  onExportFilteredRows,
+  unhideTotalAmount = false,
+}) {
+  const [sortState, setSortState] = useState({
+    key: 'date',
+    direction: 'desc',
+  });
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState([]);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const activeFilterCount = Object.values(filterValues).filter(Boolean).length;
+  const filteredExpenses = expenses.filter((expense) => {
+    const dateFilter = normalizeFilterValue(filterValues.date);
+    const individualIdentifierFilter = normalizeFilterValue(
+      filterValues.individualIdentifier,
+    );
+    const descriptionFilter = normalizeFilterValue(filterValues.description);
+    const expenseDate = String(getExpenseFilterDate(expense) || '').slice(0, 10);
+    const individualIdentifier = normalizeFilterValue(
+      getExpenseReference(expense),
+    );
+    const description = normalizeFilterValue(getExpenseDescription(expense));
+
+    return (
+      (!dateFilter || expenseDate === dateFilter) &&
+      (!individualIdentifierFilter ||
+        individualIdentifier.includes(individualIdentifierFilter)) &&
+      (!descriptionFilter || description.includes(descriptionFilter))
+    );
+  });
+  const sortedExpenses = [...filteredExpenses].sort((left, right) => {
+    const leftValue = getExpenseSortValue(left, sortState.key);
+    const rightValue = getExpenseSortValue(right, sortState.key);
+    const direction = sortState.direction === 'asc' ? 1 : -1;
+
+    if (leftValue > rightValue) {
+      return direction;
+    }
+    if (leftValue < rightValue) {
+      return -direction;
+    }
+    return 0;
+  });
+  const pageCount = Math.max(1, Math.ceil(sortedExpenses.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, pageCount);
+  const pageStart = (safeCurrentPage - 1) * pageSize;
+  const pagedExpenses = sortedExpenses.slice(pageStart, pageStart + pageSize);
+  const selectedCount = selectedExpenseIds.length;
+  const totalExpenses = filteredExpenses.reduce(
+    (total, expense) => total + Number(getExpenseTotalAmount(expense) || 0),
+    0,
+  );
+  const visibleRowIds = pagedExpenses.map((expense, index) =>
+    getExpenseRowId(expense, pageStart + index),
+  );
+  const areVisibleRowsSelected =
+    visibleRowIds.length > 0 &&
+    visibleRowIds.every((id) => selectedExpenseIds.includes(id));
+
+  const setFilterValue = (name, value) => {
+    setCurrentPage(1);
+    onFilterValueChange(name, value);
+  };
+
+  const clearFilters = () => {
+    setCurrentPage(1);
+    onClearFilters();
+  };
+
+  const toggleSort = (key) => {
+    setSortState((previous) => ({
+      key,
+      direction:
+        previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const toggleRowSelection = (id) => {
+    setSelectedExpenseIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((selectedId) => selectedId !== id)
+        : [...previous, id],
+    );
+  };
+
+  const toggleVisibleRowsSelection = () => {
+    setSelectedExpenseIds((previous) => {
+      if (areVisibleRowsSelected) {
+        return previous.filter((id) => !visibleRowIds.includes(id));
+      }
+      return Array.from(new Set([...previous, ...visibleRowIds]));
+    });
+  };
+
+  const filterInputStyle = (tone) => ({
+    background: vaultPalette.slateLedger.mutedSurface,
+    border: `1px solid ${vaultPalette.slateLedger.line}`,
+    borderLeft: `4px solid ${vaultPalette[tone].line || vaultPalette[tone].accent}`,
+    borderRadius: 6,
+    color: vaultPalette.slateLedger.text,
+    height: 34,
+  });
+
+  const headerCellStyle = (key, align = 'left') => ({
+    background: vaultPalette.slateLedger.surface,
+    borderRight: `1px solid ${vaultPalette.slateLedger.line}`,
+    borderBottom: `2px solid ${vaultPalette[columnTone[key]].line}`,
+    color: vaultPalette[columnTone[key]].accent,
+    cursor: 'pointer',
+    padding: '10px 12px',
+    textAlign: align,
+    whiteSpace: 'nowrap',
+  });
+
+  const bodyCellStyle = (index, key, align = 'left') => ({
+    ...alternateColumnStyles[index % alternateColumnStyles.length],
+    borderRight: `1px solid ${vaultPalette.slateLedger.line}`,
+    borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+    color:
+      columnTone[key] === 'rupeeGreen'
+        ? vaultPalette.rupeeGreen.strong
+        : vaultPalette.slateLedger.text,
+    padding: '10px 12px',
+    textAlign: align,
+  });
+
+  const SortMark = ({ columnKey }) => (
+    <span style={{ color: vaultPalette[columnTone[columnKey]].accent }}>
+      {sortState.key === columnKey
+        ? sortState.direction === 'asc'
+          ? ' ↑'
+          : ' ↓'
+        : ' ↕'}
+    </span>
+  );
+
+  return (
+    <Card
+      elevation={0}
+      style={{
+        marginTop: 16,
+        background: vaultPalette.slateLedger.surface,
+        border: `1px solid ${vaultPalette.slateLedger.line}`,
+        padding: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: unhideTotalAmount
+            ? 'repeat(3, minmax(0, 1fr))'
+            : 'repeat(2, minmax(0, 1fr))',
+          gap: 12,
+          padding: 16,
+          borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+        }}
+      >
+        <div
+          style={{
+            background: vaultPalette.slateLedger.mutedSurface,
+            border: `1px solid ${vaultPalette.slateLedger.line}`,
+            borderRadius: 8,
+            padding: 14,
+          }}
+        >
+          <div className={Classes.TEXT_MUTED}>Records shown</div>
+          <div style={{ fontSize: 28, fontWeight: 700 }}>
+            {filteredExpenses.length}
+          </div>
+        </div>
+        {unhideTotalAmount ? (
+          <div
+            style={{
+              background: vaultPalette.rupeeGreen.surface,
+              border: `1px solid ${vaultPalette.rupeeGreen.line}`,
+              borderRadius: 8,
+              padding: 14,
+            }}
+          >
+            <div style={{ color: vaultPalette.rupeeGreen.accent }}>
+              Total amount
+            </div>
+            <div
+              style={{
+                color: vaultPalette.rupeeGreen.strong,
+                fontSize: 28,
+                fontWeight: 700,
+              }}
+            >
+              {formatCurrency(totalExpenses)}
+            </div>
+          </div>
+        ) : null}
+        <div
+          style={{
+            background: vaultPalette.actionBlue.surface,
+            border: `1px solid ${vaultPalette.actionBlue.line}`,
+            borderRadius: 8,
+            padding: 14,
+          }}
+        >
+          <div style={{ color: vaultPalette.actionBlue.accent }}>Selected</div>
+          <div style={{ fontSize: 28, fontWeight: 700 }}>{selectedCount}</div>
+        </div>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          padding: '10px 12px',
+          borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <H3 style={{ margin: 0 }}>
+            <T id="cash_vault.expenses" />
+          </H3>
+          <span className={Classes.TEXT_MUTED}>
+            {filteredExpenses.length} results found
+          </span>
+          {activeFilterCount ? (
+            <span style={{ color: vaultPalette.actionBlue.accent }}>
+              {activeFilterCount} active filters
+            </span>
+          ) : null}
+        </div>
+        <Button
+          intent={Intent.PRIMARY}
+          onClick={() => onExportFilteredRows(sortedExpenses)}
+          disabled={sortedExpenses.length === 0}
+        >
+          <T id="cash_vault.export" />
+        </Button>
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '150px 210px minmax(220px, 1fr) auto',
+          gap: 8,
+          alignItems: 'end',
+          padding: '10px 12px',
+          borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+        }}
+      >
+        <FormGroup label={<T id="cash_vault.date" />} style={{ margin: 0 }}>
+          <InputGroup
+            type="date"
+            value={filterValues.date}
+            style={filterInputStyle(filterTone.date)}
+            onChange={(event) => setFilterValue('date', event.target.value)}
+          />
+        </FormGroup>
+        <FormGroup
+          label={<T id="cash_vault.individual_identifier" />}
+          style={{ margin: 0 }}
+        >
+          <InputGroup
+            value={filterValues.individualIdentifier}
+            style={filterInputStyle(filterTone.individualIdentifier)}
+            onChange={(event) =>
+              setFilterValue('individualIdentifier', event.target.value)
+            }
+          />
+        </FormGroup>
+        <FormGroup
+          label={<T id="cash_vault.description" />}
+          style={{ margin: 0 }}
+        >
+          <InputGroup
+            value={filterValues.description}
+            style={filterInputStyle(filterTone.description)}
+            onChange={(event) =>
+              setFilterValue('description', event.target.value)
+            }
+          />
+        </FormGroup>
+        <Button minimal intent={Intent.PRIMARY} onClick={clearFilters}>
+          Clear all
+        </Button>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          padding: '8px 12px',
+          borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+          color: vaultPalette.slateLedger.accent,
+          fontSize: 12,
+        }}
+      >
+        <span>
+          <span style={{ color: vaultPalette.actionBlue.accent }}>●</span>{' '}
+          identity/date filters
+        </span>
+        <span>
+          <span style={{ color: vaultPalette.rupeeGreen.accent }}>●</span>{' '}
+          amount column
+        </span>
+        <span>
+          <span style={{ color: vaultPalette.slateLedger.accent }}>●</span>{' '}
+          text filter
+        </span>
+      </div>
+      {isLoading ? (
+        <div style={{ padding: 16 }}>
+          <Spinner size={24} />
+        </div>
+      ) : (
+        <>
+          <HTMLTable
+            interactive
+            style={{
+              width: '100%',
+              borderCollapse: 'separate',
+              borderSpacing: 0,
+            }}
+          >
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    ...bodyCellStyle(0, 'date'),
+                    width: 36,
+                    textAlign: 'center',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={areVisibleRowsSelected}
+                    onChange={toggleVisibleRowsSelection}
+                  />
+                </th>
+                <th style={headerCellStyle('date')} onClick={() => toggleSort('date')}>
+                  <T id="cash_vault.date" />
+                  <SortMark columnKey="date" />
+                </th>
+                <th
+                  style={headerCellStyle('individualIdentifier')}
+                  onClick={() => toggleSort('individualIdentifier')}
+                >
+                  <T id="cash_vault.individual_identifier" />
+                  <SortMark columnKey="individualIdentifier" />
+                </th>
+                <th
+                  style={headerCellStyle('description')}
+                  onClick={() => toggleSort('description')}
+                >
+                  <T id="cash_vault.description" />
+                  <SortMark columnKey="description" />
+                </th>
+                <th
+                  style={headerCellStyle('amount', 'right')}
+                  onClick={() => toggleSort('amount')}
+                >
+                  <T id="cash_vault.amount_inr" />
+                  <SortMark columnKey="amount" />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedExpenses.map((expense, index) => {
+                const rowId = getExpenseRowId(expense, pageStart + index);
+                const isSelected = selectedExpenseIds.includes(rowId);
+                return (
+                  <tr
+                    key={rowId}
+                    style={{
+                      outline: isSelected
+                        ? `1px solid ${vaultPalette.actionBlue.line}`
+                        : 'none',
+                    }}
+                  >
+                    <td
+                      style={{
+                        ...bodyCellStyle(0, 'date'),
+                        width: 36,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRowSelection(rowId)}
+                      />
+                    </td>
+                    <td style={bodyCellStyle(1, 'date')}>
+                      {getExpenseDate(expense) || '-'}
+                    </td>
+                    <td style={bodyCellStyle(2, 'individualIdentifier')}>
+                      {getExpenseReference(expense) || '-'}
+                    </td>
+                    <td style={bodyCellStyle(3, 'description')}>
+                      {getExpenseDescription(expense) || '-'}
+                    </td>
+                    <td style={bodyCellStyle(4, 'amount', 'right')}>
+                      {getExpenseFormattedAmount(expense) ||
+                        formatCurrency(
+                          getExpenseTotalAmount(expense),
+                          getExpenseCurrencyCode(expense),
+                        )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {pagedExpenses.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      padding: 14,
+                      borderBottom: `1px solid ${vaultPalette.slateLedger.line}`,
+                    }}
+                  >
+                    <T id="cash_vault.no_expenses" />
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </HTMLTable>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '10px 12px',
+              borderTop: `1px solid ${vaultPalette.slateLedger.line}`,
+              color: vaultPalette.slateLedger.accent,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Results per page</span>
+              <NumericInput
+                min={1}
+                max={100}
+                value={pageSize}
+                buttonPosition="none"
+                style={{ width: 56 }}
+                onValueChange={(value) => {
+                  setCurrentPage(1);
+                  setPageSize(Number(value) || 10);
+                }}
+              />
+              <span>
+                {sortedExpenses.length === 0 ? 0 : pageStart + 1} to{' '}
+                {Math.min(pageStart + pageSize, sortedExpenses.length)} of{' '}
+                {sortedExpenses.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Button
+                minimal
+                disabled={safeCurrentPage === 1}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              >
+                ‹
+              </Button>
+              <span>
+                {safeCurrentPage} of {pageCount}
+              </span>
+              <Button
+                minimal
+                disabled={safeCurrentPage === pageCount}
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(pageCount, page + 1))
+                }
+              >
+                ›
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
 
 export function CashVaultScopedPage() {
   const organizationName = useCurrentOrganizationName();
@@ -145,29 +693,6 @@ export function CashVaultManagementPage() {
   const [filterValues, setFilterValues] = useState(defaultFilterValues);
 
   const expenses = expensesResponse?.data || [];
-  const filteredExpenses = expenses.filter((expense) => {
-    const dateFilter = normalizeFilterValue(filterValues.date);
-    const individualIdentifierFilter = normalizeFilterValue(
-      filterValues.individualIdentifier,
-    );
-    const descriptionFilter = normalizeFilterValue(filterValues.description);
-    const expenseDate = String(getExpenseFilterDate(expense) || '').slice(0, 10);
-    const individualIdentifier = normalizeFilterValue(
-      getExpenseReference(expense),
-    );
-    const description = normalizeFilterValue(getExpenseDescription(expense));
-
-    return (
-      (!dateFilter || expenseDate === dateFilter) &&
-      (!individualIdentifierFilter ||
-        individualIdentifier.includes(individualIdentifierFilter)) &&
-      (!descriptionFilter || description.includes(descriptionFilter))
-    );
-  });
-  const totalExpenses = filteredExpenses.reduce(
-    (total, expense) => total + Number(getExpenseTotalAmount(expense) || 0),
-    0,
-  );
 
   const setExpenseValue = (name, value) => {
     setExpenseValues((previous) => ({ ...previous, [name]: value }));
@@ -177,8 +702,8 @@ export function CashVaultManagementPage() {
     setFilterValues((previous) => ({ ...previous, [name]: value }));
   };
 
-  const handleExportExpenses = async () => {
-    const rows = filteredExpenses.map((expense) => ({
+  const handleExportExpenses = async (rows) => {
+    const exportRows = rows.map((expense) => ({
       date: getExpenseDate(expense) || '',
       individualIdentifier: getExpenseReference(expense) || '',
       description: getExpenseDescription(expense) || '',
@@ -198,9 +723,9 @@ export function CashVaultManagementPage() {
             { header: 'Description', key: 'description', width: 40 },
             { header: 'Amount (INR)', key: 'amount', width: 14 },
           ],
-          data: rows,
+          data: exportRows,
           freezePane: { rows: 1 },
-          autoFilter: { range: `A1:D${Math.max(rows.length + 1, 1)}` },
+          autoFilter: { range: `A1:D${Math.max(exportRows.length + 1, 1)}` },
         },
       ],
     });
@@ -348,110 +873,14 @@ export function CashVaultManagementPage() {
             </Button>
           </form>
         </Card>
-        <Card elevation={0} style={{ marginTop: 16 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 12,
-            }}
-          >
-            <H3 style={{ margin: 0 }}>
-              <T id="cash_vault.expenses" />
-            </H3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span className={Classes.TEXT_MUTED}>
-                <T id="cash_vault.total_expenses" />:{' '}
-                {formatCurrency(totalExpenses)}
-              </span>
-              <Button
-                intent={Intent.PRIMARY}
-                onClick={handleExportExpenses}
-                disabled={filteredExpenses.length === 0}
-              >
-                <T id="cash_vault.export" />
-              </Button>
-            </div>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 16,
-              marginBottom: 12,
-            }}
-          >
-            <FormGroup label={<T id="cash_vault.date" />}>
-              <InputGroup
-                type="date"
-                value={filterValues.date}
-                onChange={(event) => setFilterValue('date', event.target.value)}
-              />
-            </FormGroup>
-            <FormGroup label={<T id="cash_vault.individual_identifier" />}>
-              <InputGroup
-                value={filterValues.individualIdentifier}
-                onChange={(event) =>
-                  setFilterValue('individualIdentifier', event.target.value)
-                }
-              />
-            </FormGroup>
-            <FormGroup label={<T id="cash_vault.description" />}>
-              <InputGroup
-                value={filterValues.description}
-                onChange={(event) =>
-                  setFilterValue('description', event.target.value)
-                }
-              />
-            </FormGroup>
-          </div>
-          {isExpensesLoading ? (
-            <Spinner size={24} />
-          ) : (
-            <HTMLTable striped interactive style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th>
-                    <T id="cash_vault.date" />
-                  </th>
-                  <th>
-                    <T id="cash_vault.individual_identifier" />
-                  </th>
-                  <th>
-                    <T id="cash_vault.description" />
-                  </th>
-                  <th style={{ textAlign: 'right' }}>
-                    <T id="cash_vault.amount_inr" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredExpenses.map((expense) => (
-                  <tr key={expense.id}>
-                    <td>{getExpenseDate(expense) || '-'}</td>
-                    <td>{getExpenseReference(expense) || '-'}</td>
-                    <td>{getExpenseDescription(expense) || '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      {getExpenseFormattedAmount(expense) ||
-                        formatCurrency(
-                          getExpenseTotalAmount(expense),
-                          getExpenseCurrencyCode(expense),
-                        )}
-                    </td>
-                  </tr>
-                ))}
-                {filteredExpenses.length === 0 ? (
-                  <tr>
-                    <td colSpan={4}>
-                      <T id="cash_vault.no_expenses" />
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </HTMLTable>
-          )}
-        </Card>
+        <CashVaultExpenseLedgerTable
+          expenses={expenses}
+          isLoading={isExpensesLoading}
+          filterValues={filterValues}
+          onFilterValueChange={setFilterValue}
+          onClearFilters={() => setFilterValues(defaultFilterValues)}
+          onExportFilteredRows={handleExportExpenses}
+        />
       </div>
   );
 }
