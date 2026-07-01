@@ -33,4 +33,17 @@ describe('CashVaultManagementPage actor context', () => {
     expect(source).toContain('expenseAccountId: 1000');
     expect(source).toContain('createExpense.isError');
   });
+
+  it('renders Cash Vault expenses from transformed snake_case API fields', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'CashVaultManagementPage.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('formatted_date');
+    expect(source).toContain('payment_date');
+    expect(source).toContain('reference_no');
+    expect(source).toContain('total_amount');
+    expect(source).toContain('currency_code');
+  });
 });

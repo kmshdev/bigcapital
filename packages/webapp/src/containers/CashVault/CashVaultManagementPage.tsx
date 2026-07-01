@@ -35,6 +35,29 @@ const formatCurrency = (amount, currencyCode = 'INR') =>
     currency: currencyCode,
   }).format(Number(amount || 0));
 
+const firstPresent = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== '');
+
+const getExpenseDate = (expense) =>
+  firstPresent(
+    expense.formattedDate,
+    expense.formatted_date,
+    expense.paymentDate,
+    expense.payment_date,
+  );
+
+const getExpenseReference = (expense) =>
+  firstPresent(expense.referenceNo, expense.reference_no);
+
+const getExpenseTotalAmount = (expense) =>
+  firstPresent(expense.totalAmount, expense.total_amount, 0);
+
+const getExpenseFormattedAmount = (expense) =>
+  firstPresent(expense.formattedAmount, expense.formatted_amount);
+
+const getExpenseCurrencyCode = (expense) =>
+  firstPresent(expense.currencyCode, expense.currency_code, 'INR');
+
 const getLedgerDisplayName = (account) => {
   if (account.name?.startsWith('TEST_LEDGER_')) {
     return account.name;
@@ -87,7 +110,7 @@ export function CashVaultManagementPage() {
 
   const expenses = expensesResponse?.data || [];
   const totalExpenses = expenses.reduce(
-    (total, expense) => total + Number(expense.totalAmount || 0),
+    (total, expense) => total + Number(getExpenseTotalAmount(expense) || 0),
     0,
   );
 
@@ -272,14 +295,14 @@ export function CashVaultManagementPage() {
               <tbody>
                 {expenses.map((expense) => (
                   <tr key={expense.id}>
-                    <td>{expense.formattedDate || expense.paymentDate}</td>
+                    <td>{getExpenseDate(expense) || '-'}</td>
                     <td>{expense.description || '-'}</td>
-                    <td>{expense.referenceNo || '-'}</td>
+                    <td>{getExpenseReference(expense) || '-'}</td>
                     <td style={{ textAlign: 'right' }}>
-                      {expense.formattedAmount ||
+                      {getExpenseFormattedAmount(expense) ||
                         formatCurrency(
-                          expense.totalAmount,
-                          expense.currencyCode || 'INR',
+                          getExpenseTotalAmount(expense),
+                          getExpenseCurrencyCode(expense),
                         )}
                     </td>
                   </tr>
