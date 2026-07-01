@@ -46,7 +46,7 @@ export class CashVaultController {
   }
 
   @Get('/accounts')
-  @RequirePermission(CashVaultAction.Manage, AbilitySubject.CashVault)
+  @RequirePermission(CashVaultAction.Entry, AbilitySubject.CashVault)
   @ApiOperation({ summary: 'List Cash Vault accounts visible to the user.' })
   public getCashVaultAccounts() {
     return this.cashVaultApplication.getCashVaultAccounts();

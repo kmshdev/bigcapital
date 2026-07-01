@@ -24,7 +24,7 @@ export function useCashVaultAccounts(props) {
     queryKey: cashVaultKeys.accounts,
     queryFn: () =>
       request
-        .get('/cash-vault/accounts', cashVaultManageScope)
+        .get('/cash-vault/accounts', cashVaultEntryScope)
         .then((res) => res.data),
   });
 }

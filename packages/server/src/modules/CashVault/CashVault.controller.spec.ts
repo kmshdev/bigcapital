@@ -15,6 +15,18 @@ describe('CashVaultController', () => {
     expect(app.getCashVaultAccounts).toHaveBeenCalledTimes(1);
   });
 
+  it('requires CashVault.Entry permission for listing the current vault account', () => {
+    const metadata = Reflect.getMetadata(
+      REQUIRED_PERMISSION_KEY,
+      CashVaultController.prototype.getCashVaultAccounts,
+    );
+
+    expect(metadata).toEqual({
+      ability: CashVaultAction.Entry,
+      subject: AbilitySubject.CashVault,
+    });
+  });
+
   it('designates an account as Cash Vault through the application service', async () => {
     const app = {
       designateCashVaultAccount: jest.fn().mockResolvedValue({
