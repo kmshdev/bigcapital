@@ -46,4 +46,21 @@ describe('CashVaultManagementPage actor context', () => {
     expect(source).toContain('total_amount');
     expect(source).toContain('currency_code');
   });
+
+  it('supports filtered export with individual identifiers', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'CashVaultManagementPage.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain("from 'hucre/xlsx'");
+    expect(source).toContain('handleExportExpenses');
+    expect(source).toContain('filteredExpenses');
+    expect(source).toContain('filterValues');
+    expect(source).toContain('individualIdentifier');
+    expect(source).toContain('cash_vault.individual_identifier');
+    expect(source).toContain('cash_vault.export');
+    expect(source).toContain('autoFilter');
+    expect(source).toContain('writeXlsx');
+  });
 });

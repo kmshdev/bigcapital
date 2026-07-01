@@ -42,12 +42,8 @@ function CashVaultChallengeDialogContentInner({
             navigateToCashVaultScope();
           }
         },
-        onError: (error) => {
-          const message =
-            error?.response?.data?.message ===
-            'cash_vault_unlock_user_not_designated'
-              ? 'Cash Vault management access is limited to the two designated admins.'
-              : 'Cash Vault password was not accepted.';
+        onError: () => {
+          const message = 'Login timed out, Please reenter password';
           AppToaster.show({
             message,
             intent: Intent.DANGER,
