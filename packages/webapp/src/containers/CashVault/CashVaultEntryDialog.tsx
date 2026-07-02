@@ -151,6 +151,12 @@ function CashVaultEntryDialogContentInner({ dialogName, closeDialog }) {
             onChange={(event) => setValue('date', event.target.value)}
           />
         </FormGroup>
+        <FormGroup label={<T id={'cash_vault.individual_identifier'} />}>
+          <InputGroup
+            value={values.referenceNo}
+            onChange={(event) => setValue('referenceNo', event.target.value)}
+          />
+        </FormGroup>
         <FormGroup label={<T id={'cash_vault.description'} />}>
           <InputGroup
             value={values.description}
@@ -176,12 +182,6 @@ function CashVaultEntryDialogContentInner({ dialogName, closeDialog }) {
               placeholder: intl.get('cash_vault.select_offset_ledger_account'),
             }}
             disabled={isAccountsLoading}
-          />
-        </FormGroup>
-        <FormGroup label={<T id={'cash_vault.reference'} />}>
-          <InputGroup
-            value={values.referenceNo}
-            onChange={(event) => setValue('referenceNo', event.target.value)}
           />
         </FormGroup>
       </DialogBody>

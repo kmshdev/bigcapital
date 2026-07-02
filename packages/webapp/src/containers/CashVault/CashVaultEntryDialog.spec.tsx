@@ -24,7 +24,25 @@ describe('CashVaultEntryDialog', () => {
 
     expect(dialogSource).toContain('useAccounts');
     expect(dialogSource).toContain('AccountsSuggestField');
-    expect(dialogSource).not.toContain("label={<T id={'cash_vault.offset_account_id'} />}");
-    expect(dialogSource).not.toContain("setValue('offsetAccountId', offsetAccountId)");
+    expect(dialogSource).not.toContain(
+      "label={<T id={'cash_vault.offset_account_id'} />}",
+    );
+    expect(dialogSource).not.toContain(
+      "setValue('offsetAccountId', offsetAccountId)",
+    );
+  });
+
+  it('labels the reference payload as individual identifier', () => {
+    const dialogSource = fs.readFileSync(
+      path.join(__dirname, 'CashVaultEntryDialog.tsx'),
+      'utf8',
+    );
+
+    expect(dialogSource).toContain(
+      "label={<T id={'cash_vault.individual_identifier'} />}",
+    );
+    expect(dialogSource).not.toContain(
+      "label={<T id={'cash_vault.reference'} />}",
+    );
   });
 });
