@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Classes,
@@ -12,11 +12,18 @@ import {
   NumericInput,
 } from '@blueprintjs/core';
 import intl from 'react-intl-universal';
-import { Dialog, DialogSuspense, FormattedMessage as T } from '@/components';
+import {
+  AccountsSuggestField,
+  Dialog,
+  DialogSuspense,
+  FormattedMessage as T,
+} from '@/components';
 import withDialogRedux from '@/components/DialogReduxConnect';
 import { AppToaster } from '@/components';
-import { compose } from '@/utils';
+import { compose, nestedArrayToflatten } from '@/utils';
+import { ACCOUNT_TYPE } from '@/constants/accountTypes';
 import { withDialogActions } from '@/containers/Dialog/withDialogActions';
+import { useAccounts } from '@/hooks/query';
 import { useCreateCashVaultEntry } from './hooks';
 
 const defaultValues = {
@@ -28,16 +35,63 @@ const defaultValues = {
   offsetAccountId: '',
 };
 
+const isCashVaultAccount = (account) =>
+  account?.isCashVault || account?.is_cash_vault || account?.cashVault;
+
+const getAccountCode = (account) => String(account?.code || '').toUpperCase();
+
+const getDefaultOffsetAccountId = (accounts) => {
+  const activeAccounts = accounts.filter(
+    (account) => !isCashVaultAccount(account),
+  );
+  const paymentAccount = activeAccounts.find(
+    (account) => getAccountCode(account) === 'PAYMAIN01',
+  );
+  const bankOrCashAccount = activeAccounts.find((account) =>
+    [ACCOUNT_TYPE.BANK, ACCOUNT_TYPE.CASH].includes(account?.accountType),
+  );
+
+  return (
+    paymentAccount?.id || bankOrCashAccount?.id || activeAccounts[0]?.id || ''
+  );
+};
+
 function CashVaultEntryDialogContentInner({ dialogName, closeDialog }) {
   const [values, setValues] = useState(defaultValues);
+  const { data: accounts = [], isLoading: isAccountsLoading } = useAccounts();
   const createEntry = useCreateCashVaultEntry();
 
   const setValue = (name, value) => {
     setValues((previous) => ({ ...previous, [name]: value }));
   };
 
+  const ledgerAccounts = useMemo(
+    () =>
+      nestedArrayToflatten(accounts).filter(
+        (account) => !isCashVaultAccount(account),
+      ),
+    [accounts],
+  );
+  const defaultOffsetAccountId = useMemo(
+    () => getDefaultOffsetAccountId(ledgerAccounts),
+    [ledgerAccounts],
+  );
+
+  useEffect(() => {
+    if (!values.offsetAccountId && defaultOffsetAccountId) {
+      setValue('offsetAccountId', defaultOffsetAccountId);
+    }
+  }, [defaultOffsetAccountId, values.offsetAccountId]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (!values.offsetAccountId) {
+      AppToaster.show({
+        message: intl.get('cash_vault.offset_account_required'),
+        intent: Intent.DANGER,
+      });
+      return;
+    }
     createEntry.mutate(
       {
         ...values,
@@ -103,14 +157,25 @@ function CashVaultEntryDialogContentInner({ dialogName, closeDialog }) {
             onChange={(event) => setValue('description', event.target.value)}
           />
         </FormGroup>
-        <FormGroup label={<T id={'cash_vault.offset_account_id'} />}>
-          <NumericInput
-            fill
-            min={1}
-            value={values.offsetAccountId}
-            onValueChange={(offsetAccountId) =>
-              setValue('offsetAccountId', offsetAccountId)
-            }
+        <FormGroup label={<T id={'cash_vault.offset_ledger_account'} />}>
+          <AccountsSuggestField
+            items={ledgerAccounts}
+            selectedValue={values.offsetAccountId}
+            onItemSelect={(account) => setValue('offsetAccountId', account.id)}
+            filterByTypes={[
+              ACCOUNT_TYPE.CASH,
+              ACCOUNT_TYPE.BANK,
+              ACCOUNT_TYPE.OTHER_CURRENT_ASSET,
+              ACCOUNT_TYPE.EQUITY,
+              ACCOUNT_TYPE.INCOME,
+              ACCOUNT_TYPE.OTHER_INCOME,
+              ACCOUNT_TYPE.EXPENSE,
+              ACCOUNT_TYPE.OTHER_EXPENSE,
+            ]}
+            inputProps={{
+              placeholder: intl.get('cash_vault.select_offset_ledger_account'),
+            }}
+            disabled={isAccountsLoading}
           />
         </FormGroup>
         <FormGroup label={<T id={'cash_vault.reference'} />}>

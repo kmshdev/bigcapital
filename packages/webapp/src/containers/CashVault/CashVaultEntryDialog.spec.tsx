@@ -15,4 +15,16 @@ describe('CashVaultEntryDialog', () => {
     expect(dialogSource).not.toContain('cashVaultAccountId');
     expect(dialogSource).not.toContain('balance');
   });
+
+  it('uses a ledger account selector instead of a raw numeric offset id', () => {
+    const dialogSource = fs.readFileSync(
+      path.join(__dirname, 'CashVaultEntryDialog.tsx'),
+      'utf8',
+    );
+
+    expect(dialogSource).toContain('useAccounts');
+    expect(dialogSource).toContain('AccountsSuggestField');
+    expect(dialogSource).not.toContain("label={<T id={'cash_vault.offset_account_id'} />}");
+    expect(dialogSource).not.toContain("setValue('offsetAccountId', offsetAccountId)");
+  });
 });

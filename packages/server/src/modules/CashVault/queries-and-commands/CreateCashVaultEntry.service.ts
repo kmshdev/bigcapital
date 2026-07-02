@@ -15,6 +15,17 @@ export class CreateCashVaultEntryService {
     if (!entryTarget) {
       throw new Error('cash_vault_entry_target_not_configured');
     }
+    const offsetAccount = await this.accountRepository.findById(
+      entryDto.offsetAccountId,
+    );
+    if (
+      !offsetAccount ||
+      (offsetAccount as any).isCashVault ||
+      (offsetAccount as any).is_cash_vault ||
+      Number(offsetAccount.id) === Number(entryTarget.id)
+    ) {
+      throw new Error('cash_vault_offset_account_not_configured');
+    }
     const transaction = await this.bankingTransactionsApplication.createTransaction(
       {
         date: entryDto.date as any,
@@ -23,7 +34,7 @@ export class CreateCashVaultEntryService {
         amount: entryDto.amount,
         exchangeRate: 1,
         currencyCode: 'INR',
-        creditAccountId: entryDto.offsetAccountId,
+        creditAccountId: offsetAccount.id,
         cashflowAccountId: entryTarget.id,
         publish: true,
         referenceNo: entryDto.referenceNo,
